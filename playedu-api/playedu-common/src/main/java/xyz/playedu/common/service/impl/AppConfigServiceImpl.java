@@ -22,11 +22,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import xyz.playedu.common.constant.BackendConstant;
 import xyz.playedu.common.constant.CommonConstant;
 import xyz.playedu.common.constant.ConfigConstant;
+import xyz.playedu.common.config.PlayEduConfig;
 import xyz.playedu.common.domain.AppConfig;
 import xyz.playedu.common.exception.ServiceException;
 import xyz.playedu.common.mapper.AppConfigMapper;
@@ -41,6 +43,7 @@ public class AppConfigServiceImpl extends ServiceImpl<AppConfigMapper, AppConfig
         implements AppConfigService {
 
     private Environment environment;
+    @Autowired private PlayEduConfig playEduConfig;
 
     @Override
     public Map<String, Long> allKeys() {
@@ -104,6 +107,7 @@ public class AppConfigServiceImpl extends ServiceImpl<AppConfigMapper, AppConfig
         s3Config.setSecretKey(config.get(ConfigConstant.S3_SECRET_KEY));
         s3Config.setBucket(config.get(ConfigConstant.S3_BUCKET));
         s3Config.setEndpoint(config.get(ConfigConstant.S3_ENDPOINT));
+        s3Config.setPublicEndpoint(playEduConfig.getS3PublicEndpoint());
 
         // region解析
         String region = config.get(ConfigConstant.S3_REGION);

@@ -7,44 +7,101 @@ x-logging: &default-logging
 networks:
   playedu:
     driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.10.10.0/24
 
 volumes:
   mysql-data:
+  minio-data:
+  whisper-cache:
 
 services:
   playedu:
-    image: registry.cn-hangzhou.aliyuncs.com/playedu/light:2.0
-    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: playedu-local:2.0
+    restart: unless-stopped
     environment:
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_NAME=playedu
       - DB_USER=root
-      - DB_PASS=playeduxyz
+      - DB_PASS=${DB_PASS:-rainbow2004}
       - SA_TOKEN_IS_CONCURRENT=false
-      - SA_TOKEN_JWT_SECRET_KEY=${PLAYEDU_JWT_KEY:-playeduxyz}
+      - SA_TOKEN_JWT_SECRET_KEY=${PLAYEDU_JWT_KEY:-rainbow2004}
+      - PLAYEDU_SUBTITLE_ENABLED=${PLAYEDU_SUBTITLE_ENABLED:-true}
+      - PLAYEDU_SUBTITLE_AUTO_GENERATE_ON_UPLOAD=${PLAYEDU_SUBTITLE_AUTO_GENERATE_ON_UPLOAD:-true}
+      - PLAYEDU_SUBTITLE_PROVIDER=${PLAYEDU_SUBTITLE_PROVIDER:-whisper}
+      - PLAYEDU_SUBTITLE_PROVIDER_URL=http://whisper:9000/asr
+      - PLAYEDU_SUBTITLE_LANGUAGE=${PLAYEDU_SUBTITLE_LANGUAGE:-zh}
+      - PLAYEDU_SUBTITLE_TASK=${PLAYEDU_SUBTITLE_TASK:-transcribe}
+      - PLAYEDU_SUBTITLE_RESPONSE_FORMAT=${PLAYEDU_SUBTITLE_RESPONSE_FORMAT:-vtt}
+      - PLAYEDU_SUBTITLE_TIMEOUT_MS=${PLAYEDU_SUBTITLE_TIMEOUT_MS:-1800000}
+      - PLAYEDU_SUBTITLE_EXTRACT_AUDIO_BEFORE_TRANSCRIBE=${PLAYEDU_SUBTITLE_EXTRACT_AUDIO_BEFORE_TRANSCRIBE:-true}
+      - PLAYEDU_SUBTITLE_FFMPEG_COMMAND=${PLAYEDU_SUBTITLE_FFMPEG_COMMAND:-ffmpeg}
+      - PLAYEDU_SUBTITLE_AUDIO_FORMAT=${PLAYEDU_SUBTITLE_AUDIO_FORMAT:-wav}
+      - PLAYEDU_SUBTITLE_AUDIO_SAMPLE_RATE=${PLAYEDU_SUBTITLE_AUDIO_SAMPLE_RATE:-16000}
+      - PLAYEDU_SUBTITLE_AUDIO_CHANNELS=${PLAYEDU_SUBTITLE_AUDIO_CHANNELS:-1}
+      - PLAYEDU_S3_PUBLIC_ENDPOINT=${PLAYEDU_S3_PUBLIC_ENDPOINT:-http://localhost:9002}
     ports:
       - "${PLAYEDU_API_PORT:-9700}:9898"
       - "${PLAYEDU_PC_PORT:-9800}:9800"
       - "${PLAYEDU_H5_PORT:-9801}:9801"
       - "${PLAYEDU_ADMIN_PORT:-9900}:9900"
+    volumes:
+      - "./docker/data/:/playedu-data/"
     networks:
       - playedu
     depends_on:
       - mysql
+      - minio
+      - whisper
     logging: *default-logging
 
   mysql:
     build: ./docker/mysql
-    restart: always
+    restart: unless-stopped
     environment:
       - MYSQL_DATABASE=playedu
-      - MYSQL_ROOT_PASSWORD=playeduxyz
+      - MYSQL_ROOT_PASSWORD=${DB_PASS:-rainbow2004}
       - TZ=UTC
     volumes:
       - mysql-data:/var/lib/mysql
     ports:
       - "${MYSQL_PORT:-23307}:3306"
+    networks:
+      - playedu
+    logging: *default-logging
+
+  minio:
+    image: registry.cn-hangzhou.aliyuncs.com/hzbs/bitnami-minio:2024.6.6
+    restart: unless-stopped
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USERNAME:-zcb}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-rainbow2004}
+      - MINIO_DEFAULT_BUCKETS=${MINIO_DEFAULT_BUCKETS:-playedu}
+    volumes:
+      - minio-data:/bitnami/minio/data
+    ports:
+      - "${MINIO_PORT:-9002}:9000"
+      - "${MINIO_CONSOLE_PORT:-9003}:9001"
+    networks:
+      - playedu
+    logging: *default-logging
+
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    restart: unless-stopped
+    environment:
+      - ASR_ENGINE=${WHISPER_ASR_ENGINE:-faster_whisper}
+      - ASR_MODEL=${WHISPER_ASR_MODEL:-small}
+    ports:
+      - "${WHISPER_PORT:-9000}:9000"
+    volumes:
+      - whisper-cache:/root/.cache
     networks:
       - playedu
     logging: *default-logging

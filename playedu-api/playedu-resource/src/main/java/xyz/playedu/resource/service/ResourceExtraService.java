@@ -31,4 +31,13 @@ public interface ResourceExtraService extends IService<ResourceExtra> {
     void removeByRid(Integer resourceId);
 
     List<ResourceExtra> chunksByRids(List<Integer> resourceIds);
+
+    ResourceExtra findByRid(Integer resourceId);
+
+    void updateSubtitle(
+            Integer resourceId,
+            Integer subtitleRid,
+            String subtitleStatus,
+            String subtitleLang,
+            String subtitleError);
 }

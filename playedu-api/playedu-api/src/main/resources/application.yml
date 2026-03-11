@@ -57,3 +57,19 @@ playedu:
   limiter:
     duration: 60
     limit: 360
+  subtitle:
+    enabled: ${PLAYEDU_SUBTITLE_ENABLED:false}
+    auto-generate-on-upload: ${PLAYEDU_SUBTITLE_AUTO_GENERATE_ON_UPLOAD:true}
+    provider: ${PLAYEDU_SUBTITLE_PROVIDER:whisper}
+    provider-url: ${PLAYEDU_SUBTITLE_PROVIDER_URL:http://whisper:9000/asr}
+    language: ${PLAYEDU_SUBTITLE_LANGUAGE:zh}
+    task: ${PLAYEDU_SUBTITLE_TASK:transcribe}
+    response-format: ${PLAYEDU_SUBTITLE_RESPONSE_FORMAT:vtt}
+    timeout-ms: ${PLAYEDU_SUBTITLE_TIMEOUT_MS:1800000}
+    extract-audio-before-transcribe: ${PLAYEDU_SUBTITLE_EXTRACT_AUDIO_BEFORE_TRANSCRIBE:true}
+    ffmpeg-command: ${PLAYEDU_SUBTITLE_FFMPEG_COMMAND:ffmpeg}
+    audio-format: ${PLAYEDU_SUBTITLE_AUDIO_FORMAT:wav}
+    audio-sample-rate: ${PLAYEDU_SUBTITLE_AUDIO_SAMPLE_RATE:16000}
+    audio-channels: ${PLAYEDU_SUBTITLE_AUDIO_CHANNELS:1}
+  s3:
+    public-endpoint: ${PLAYEDU_S3_PUBLIC_ENDPOINT:}

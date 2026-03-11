@@ -24,4 +24,5 @@ public class S3Config {
     private String bucket;
     private String region;
     private String endpoint;
+    private String publicEndpoint;
 }

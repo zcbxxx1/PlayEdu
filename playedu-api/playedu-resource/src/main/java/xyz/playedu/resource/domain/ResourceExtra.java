@@ -43,6 +43,22 @@ public class ResourceExtra implements Serializable {
     /** 音频时长[s] */
     private Integer duration;
 
+    /** 字幕资源ID */
+    @JsonProperty("subtitle_rid")
+    private Integer subtitleRid;
+
+    /** 字幕状态 */
+    @JsonProperty("subtitle_status")
+    private String subtitleStatus;
+
+    /** 字幕语言 */
+    @JsonProperty("subtitle_lang")
+    private String subtitleLang;
+
+    /** 字幕错误信息 */
+    @JsonProperty("subtitle_error")
+    private String subtitleError;
+
     /** 创建时间 */
     @JsonProperty("created_at")
     private Date createdAt;
@@ -72,6 +88,18 @@ public class ResourceExtra implements Serializable {
                 && (this.getDuration() == null
                         ? other.getDuration() == null
                         : this.getDuration().equals(other.getDuration()))
+                && (this.getSubtitleRid() == null
+                        ? other.getSubtitleRid() == null
+                        : this.getSubtitleRid().equals(other.getSubtitleRid()))
+                && (this.getSubtitleStatus() == null
+                        ? other.getSubtitleStatus() == null
+                        : this.getSubtitleStatus().equals(other.getSubtitleStatus()))
+                && (this.getSubtitleLang() == null
+                        ? other.getSubtitleLang() == null
+                        : this.getSubtitleLang().equals(other.getSubtitleLang()))
+                && (this.getSubtitleError() == null
+                        ? other.getSubtitleError() == null
+                        : this.getSubtitleError().equals(other.getSubtitleError()))
                 && (this.getCreatedAt() == null
                         ? other.getCreatedAt() == null
                         : this.getCreatedAt().equals(other.getCreatedAt()));
@@ -85,6 +113,12 @@ public class ResourceExtra implements Serializable {
         result = prime * result + ((getRid() == null) ? 0 : getRid().hashCode());
         result = prime * result + ((getPoster() == null) ? 0 : getPoster().hashCode());
         result = prime * result + ((getDuration() == null) ? 0 : getDuration().hashCode());
+        result = prime * result + ((getSubtitleRid() == null) ? 0 : getSubtitleRid().hashCode());
+        result =
+                prime * result + ((getSubtitleStatus() == null) ? 0 : getSubtitleStatus().hashCode());
+        result = prime * result + ((getSubtitleLang() == null) ? 0 : getSubtitleLang().hashCode());
+        result =
+                prime * result + ((getSubtitleError() == null) ? 0 : getSubtitleError().hashCode());
         result = prime * result + ((getCreatedAt() == null) ? 0 : getCreatedAt().hashCode());
         return result;
     }
@@ -99,6 +133,10 @@ public class ResourceExtra implements Serializable {
         sb.append(", rid=").append(rid);
         sb.append(", poster=").append(poster);
         sb.append(", duration=").append(duration);
+        sb.append(", subtitleRid=").append(subtitleRid);
+        sb.append(", subtitleStatus=").append(subtitleStatus);
+        sb.append(", subtitleLang=").append(subtitleLang);
+        sb.append(", subtitleError=").append(subtitleError);
         sb.append(", createdAt=").append(createdAt);
         sb.append(", serialVersionUID=").append(serialVersionUID);
         sb.append("]");

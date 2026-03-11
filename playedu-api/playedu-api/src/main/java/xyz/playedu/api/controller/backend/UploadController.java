@@ -26,6 +26,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import xyz.playedu.api.request.backend.UploadFileMergeRequest;
+import xyz.playedu.api.service.VideoSubtitleService;
 import xyz.playedu.common.annotation.BackendPermission;
 import xyz.playedu.common.annotation.Log;
 import xyz.playedu.common.constant.BPermissionConstant;
@@ -58,6 +59,8 @@ public class UploadController {
     @Autowired private ResourceService resourceService;
 
     @Autowired private ResourceExtraService resourceExtraService;
+
+    @Autowired private VideoSubtitleService videoSubtitleService;
 
     @BackendPermission(slug = BPermissionConstant.UPLOAD)
     @PostMapping("/minio")
@@ -221,6 +224,9 @@ public class UploadController {
                 posterId = posterResource.getId();
             }
             resourceExtraService.create(resource.getId(), duration, posterId);
+            if (videoSubtitleService.prepareGenerateSubtitle(resource.getId())) {
+                videoSubtitleService.generateSubtitle(resource.getId(), resource.getAdminId());
+            }
         }
     }
 }

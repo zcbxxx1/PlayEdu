@@ -119,18 +119,23 @@ const CoursePalyPage = () => {
       (res: any) => {
         setResourceUrl(res.data.resource_url[rid]);
         setPlayUrl(res.data.resource_url[rid]);
-        initDPlayer(res.data.resource_url[rid], 0, data);
+        initDPlayer(res.data.resource_url[rid], 0, data, res.data.subtitle_url);
         savePlayId(String(params.courseId) + "-" + String(params.hourId));
       }
     );
   };
 
-  const initDPlayer = (playUrl: string, isTrySee: number, params: any) => {
+  const initDPlayer = (
+    playUrl: string,
+    isTrySee: number,
+    params: any,
+    subtitleUrl?: string
+  ) => {
     let banDrag =
       systemConfig.playerIsDisabledDrag &&
       watchRef.current < totalRef.current &&
       watchRef.current === 0;
-    window.player = new window.DPlayer({
+    const options: any = {
       container: document.getElementById("meedu-player-container"),
       autoplay: false,
       video: {
@@ -150,7 +155,17 @@ const CoursePalyPage = () => {
       },
       ban_drag: banDrag,
       last_see_pos: params,
-    });
+    };
+    if (subtitleUrl) {
+      options.subtitle = {
+        url: subtitleUrl,
+        type: "webvtt",
+        fontSize: "16px",
+        bottom: "8%",
+        color: "#ffffff",
+      };
+    }
+    window.player = new window.DPlayer(options);
     // 监听播放进度更新evt
     window.player.on("timeupdate", () => {
       let currentTime = parseInt(window.player.video.currentTime);

@@ -38,6 +38,10 @@ public class ResourceExtraServiceImpl extends ServiceImpl<ResourceExtraMapper, R
         video.setRid(resourceId);
         video.setDuration(duration);
         video.setPoster(poster);
+        video.setSubtitleRid(0);
+        video.setSubtitleStatus("NONE");
+        video.setSubtitleLang("");
+        video.setSubtitleError("");
         video.setCreatedAt(new Date());
         save(video);
     }
@@ -53,5 +57,33 @@ public class ResourceExtraServiceImpl extends ServiceImpl<ResourceExtraMapper, R
             return new ArrayList<>();
         }
         return list(query().getWrapper().in("rid", resourceIds));
+    }
+
+    @Override
+    public ResourceExtra findByRid(Integer resourceId) {
+        return getOne(query().getWrapper().eq("rid", resourceId));
+    }
+
+    @Override
+    public void updateSubtitle(
+            Integer resourceId,
+            Integer subtitleRid,
+            String subtitleStatus,
+            String subtitleLang,
+            String subtitleError) {
+        ResourceExtra extra = findByRid(resourceId);
+        if (extra == null) {
+            return;
+        }
+
+        ResourceExtra updateItem = new ResourceExtra();
+        updateItem.setId(extra.getId());
+        if (subtitleRid != null) {
+            updateItem.setSubtitleRid(subtitleRid);
+        }
+        updateItem.setSubtitleStatus(subtitleStatus);
+        updateItem.setSubtitleLang(subtitleLang);
+        updateItem.setSubtitleError(subtitleError);
+        updateById(updateItem);
     }
 }

@@ -170,9 +170,10 @@ public class ResourceController {
 
         // 删除文件
         S3Util s3Util = new S3Util(appConfigService.getS3Config());
-        s3Util.removeByPath(resource.getPath());
+        removeResourceFile(s3Util, resource);
         // 如果是视频资源文件则删除对应的时长关联记录
         if (BackendConstant.RESOURCE_TYPE_VIDEO.equals(resource.getType())) {
+            removeVideoRelatedResources(s3Util, resource.getId());
             resourceExtraService.removeByRid(resource.getId());
         }
         // 删除资源记录
@@ -204,9 +205,10 @@ public class ResourceController {
             }
 
             // 删除资源源文件
-            s3Util.removeByPath(resourceItem.getPath());
+            removeResourceFile(s3Util, resourceItem);
             // 如果是视频资源的话还需要删除视频的关联资源，如: 封面截图
             if (BackendConstant.RESOURCE_TYPE_VIDEO.equals(resourceItem.getType())) {
+                removeVideoRelatedResources(s3Util, resourceItem.getId());
                 resourceExtraService.removeByRid(resourceItem.getId());
             }
             // 删除数据库的记录
@@ -259,5 +261,28 @@ public class ResourceController {
         resourceService.updateNameAndCategoryId(
                 resource.getId(), req.getName(), req.getCategoryId());
         return JsonResponse.success();
+    }
+
+    private void removeVideoRelatedResources(S3Util s3Util, Integer resourceId) {
+        ResourceExtra resourceExtra = resourceExtraService.findByRid(resourceId);
+        if (resourceExtra == null) {
+            return;
+        }
+
+        Integer subtitleRid = resourceExtra.getSubtitleRid();
+        if (subtitleRid != null && subtitleRid > 0) {
+            Resource subtitleResource = resourceService.getById(subtitleRid);
+            if (subtitleResource != null) {
+                removeResourceFile(s3Util, subtitleResource);
+                resourceService.removeById(subtitleRid);
+            }
+        }
+    }
+
+    private void removeResourceFile(S3Util s3Util, Resource resource) {
+        if (resource == null || StringUtil.isEmpty(resource.getPath())) {
+            return;
+        }
+        s3Util.removeByPath(resource.getPath());
     }
 }

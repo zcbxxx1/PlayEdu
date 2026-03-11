@@ -27,8 +27,11 @@ import com.amazonaws.services.s3.model.AccessControlList;
 import com.amazonaws.services.s3.model.Grant;
 import com.amazonaws.services.s3.model.GroupGrantee;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -58,6 +61,19 @@ public class S3Util {
 
     @SneakyThrows
     private AmazonS3 getClient() {
+        return getClient(defaultConfig.getEndpoint(), true);
+    }
+
+    @SneakyThrows
+    private AmazonS3 getSignClient() {
+        if (StringUtil.isEmpty(defaultConfig.getPublicEndpoint())) {
+            return getClient();
+        }
+        return getClient(defaultConfig.getPublicEndpoint(), false);
+    }
+
+    @SneakyThrows
+    private AmazonS3 getClient(String endpoint, boolean validateBucket) {
         if (defaultConfig == null) {
             throw new ServiceException("存储服务未配置");
         }
@@ -65,15 +81,19 @@ public class S3Util {
                 new BasicAWSCredentials(defaultConfig.getAccessKey(), defaultConfig.getSecretKey());
 
         AwsClientBuilder.EndpointConfiguration endpointConfiguration =
-                new AwsClientBuilder.EndpointConfiguration(
-                        defaultConfig.getEndpoint(), defaultConfig.getRegion());
+                new AwsClientBuilder.EndpointConfiguration(endpoint, defaultConfig.getRegion());
 
         AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard();
 
         AmazonS3 client =
                 builder.withCredentials(new AWSStaticCredentialsProvider(credentials))
                         .withEndpointConfiguration(endpointConfiguration)
+                        .withPathStyleAccessEnabled(true)
                         .build();
+
+        if (!validateBucket) {
+            return client;
+        }
 
         // 检查bucket是否存在
         if (client.doesBucketExistV2(defaultConfig.getBucket())) {
@@ -170,7 +190,7 @@ public class S3Util {
         request.setExpiration(new Date(System.currentTimeMillis() + 3600 * 1000)); // 一个小时有效期
         request.addRequestParameter("partNumber", partNumber); // 分块索引
         request.addRequestParameter("uploadId", uploadId); // uploadId
-        return getClient().generatePresignedUrl(request).toString();
+        return getSignClient().generatePresignedUrl(request).toString();
     }
 
     @SneakyThrows
@@ -217,6 +237,14 @@ public class S3Util {
         return new String(s3Object.getObjectContent().readAllBytes(), StandardCharsets.UTF_8);
     }
 
+    @SneakyThrows
+    public void downloadToFile(String path, File file) {
+        S3Object s3Object = getClient().getObject(defaultConfig.getBucket(), path);
+        try (InputStream inputStream = s3Object.getObjectContent()) {
+            Files.copy(inputStream, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
     public String generateEndpointPreSignUrl(String path) {
         return generateEndpointPreSignUrl(path, "");
     }
@@ -233,6 +261,6 @@ public class S3Util {
             request.setResponseHeaders(responseHeaders);
         }
 
-        return getClient().generatePresignedUrl(request).toString();
+        return getSignClient().generatePresignedUrl(request).toString();
     }
 }

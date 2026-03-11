@@ -32,6 +32,44 @@ cd playedu && docker-compose up -d
 - H5 端口 `http://localhost:9801`
 - API 端口 `http://localhost:9700`
 
+## 自动字幕
+
+当前仓库已支持通过 Docker Compose 同时启动 `MySQL + MinIO + ahmetoner/whisper-asr-webservice`。默认配置下：
+
+- 管理后台上传视频并完成合并后，会异步触发字幕生成
+- PlayEdu 会先在本地容器内抽取标准化音轨，再交给字幕服务处理
+- 原视频和生成的字幕文件 `webvtt(.vtt)` 都会存回当前 `MinIO`
+- PC/H5 播放器会自动加载已生成的字幕
+- 字幕服务调用已通过适配层隔离，后续替换为其它 provider 时不需要重写资源上传和课时业务流程
+
+可通过 `.env` 调整以下参数：
+
+- `DB_PASS=rainbow2004`
+- `MINIO_ROOT_USERNAME=zcb`
+- `MINIO_ROOT_PASSWORD=rainbow2004`
+- `MINIO_PORT=9002`
+- `MINIO_CONSOLE_PORT=9003`
+- `PLAYEDU_SUBTITLE_ENABLED=true`
+- `PLAYEDU_SUBTITLE_PROVIDER=whisper`
+- `PLAYEDU_SUBTITLE_LANGUAGE=zh`
+- `PLAYEDU_SUBTITLE_EXTRACT_AUDIO_BEFORE_TRANSCRIBE=true`
+- `PLAYEDU_SUBTITLE_FFMPEG_COMMAND=ffmpeg`
+- `PLAYEDU_SUBTITLE_AUDIO_FORMAT=wav`
+- `PLAYEDU_SUBTITLE_AUDIO_SAMPLE_RATE=16000`
+- `PLAYEDU_SUBTITLE_AUDIO_CHANNELS=1`
+- `WHISPER_ASR_ENGINE=faster_whisper`
+- `WHISPER_ASR_MODEL=small`
+
+后台系统配置里的 S3 参数应填写为 MinIO：
+
+- `AccessKey` = `MINIO_ROOT_USERNAME`
+- `SecretKey` = `MINIO_ROOT_PASSWORD`
+- `Bucket` = `playedu`
+- `Region` = `us-east-1`
+- `Endpoint` = `http://minio:9000`
+
+如果需要更高识别精度，可以把 `WHISPER_ASR_MODEL` 调整为 `medium` 或 `large-v3`，但 CPU 和内存占用会明显提高。
+
 ## 🔰️ 软件安全
 
 安全问题应该通过邮件私下报告给 tengyongzhi@meedu.vip。 您将在 24 小时内收到回复，如果因为某些原因您没有收到回复，请通过回复原始邮件的方式跟进，以确保我们收到了您的原始邮件。

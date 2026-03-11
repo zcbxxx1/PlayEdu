@@ -34,4 +34,46 @@ public class PlayEduConfig {
 
     @Value("${playedu.limiter.limit}")
     private Long limiterLimit;
+
+    @Value("${playedu.subtitle.enabled:false}")
+    private Boolean subtitleEnabled;
+
+    @Value("${playedu.subtitle.auto-generate-on-upload:true}")
+    private Boolean subtitleAutoGenerateOnUpload;
+
+    @Value("${playedu.subtitle.provider-url:http://whisper:9000/asr}")
+    private String subtitleProviderUrl;
+
+    @Value("${playedu.subtitle.provider:whisper}")
+    private String subtitleProvider;
+
+    @Value("${playedu.subtitle.language:zh}")
+    private String subtitleLanguage;
+
+    @Value("${playedu.subtitle.task:transcribe}")
+    private String subtitleTask;
+
+    @Value("${playedu.subtitle.response-format:vtt}")
+    private String subtitleResponseFormat;
+
+    @Value("${playedu.subtitle.timeout-ms:1800000}")
+    private Integer subtitleTimeoutMs;
+
+    @Value("${playedu.subtitle.extract-audio-before-transcribe:true}")
+    private Boolean subtitleExtractAudioBeforeTranscribe;
+
+    @Value("${playedu.subtitle.ffmpeg-command:ffmpeg}")
+    private String subtitleFfmpegCommand;
+
+    @Value("${playedu.subtitle.audio-format:wav}")
+    private String subtitleAudioFormat;
+
+    @Value("${playedu.subtitle.audio-sample-rate:16000}")
+    private Integer subtitleAudioSampleRate;
+
+    @Value("${playedu.subtitle.audio-channels:1}")
+    private Integer subtitleAudioChannels;
+
+    @Value("${playedu.s3.public-endpoint:}")
+    private String s3PublicEndpoint;
 }

@@ -38,6 +38,8 @@ import xyz.playedu.course.service.CourseHourService;
 import xyz.playedu.course.service.CourseService;
 import xyz.playedu.course.service.UserCourseHourRecordService;
 import xyz.playedu.resource.domain.Resource;
+import xyz.playedu.resource.domain.ResourceExtra;
+import xyz.playedu.resource.service.ResourceExtraService;
 import xyz.playedu.resource.service.ResourceService;
 
 /**
@@ -54,6 +56,8 @@ public class HourController {
     @Autowired private CourseHourService hourService;
 
     @Autowired private ResourceService resourceService;
+
+    @Autowired private ResourceExtraService resourceExtraService;
 
     @Autowired private UserCourseHourRecordService userCourseHourRecordService;
 
@@ -109,6 +113,28 @@ public class HourController {
                         }));
         data.put("extension", resource.getExtension()); // 视频格式
         data.put("duration", resourceService.duration(resource.getId())); // 视频时长
+        ResourceExtra resourceExtra = resourceExtraService.findByRid(resource.getId());
+        String subtitleStatus = "NONE";
+        String subtitleUrl = "";
+        if (resourceExtra != null) {
+            if (resourceExtra.getSubtitleStatus() != null) {
+                subtitleStatus = resourceExtra.getSubtitleStatus();
+            }
+            Integer subtitleRid = resourceExtra.getSubtitleRid();
+            if (subtitleRid != null && subtitleRid > 0) {
+                subtitleUrl =
+                        resourceService
+                                .chunksPreSignUrlByIds(
+                                        new ArrayList<>() {
+                                            {
+                                                add(subtitleRid);
+                                            }
+                                        })
+                                .getOrDefault(subtitleRid, "");
+            }
+        }
+        data.put("subtitle_status", subtitleStatus);
+        data.put("subtitle_url", subtitleUrl);
 
         return JsonResponse.data(data);
     }
