@@ -15,6 +15,7 @@ RUN pnpm i && VITE_APP_URL=/api/ pnpm build
 
 FROM registry.cn-hangzhou.aliyuncs.com/hzbs/eclipse-temurin:17 AS java-builder
 
+ARG PLAYEDU_BUILD_STAMP=dev
 COPY playedu-api /app
 
 WORKDIR /app

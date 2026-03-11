@@ -25,8 +25,11 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import xyz.playedu.api.request.backend.ResourceDestroyMultiRequest;
 import xyz.playedu.api.request.backend.ResourceUpdateRequest;
+import xyz.playedu.api.service.VideoSubtitleService;
+import xyz.playedu.common.annotation.BackendPermission;
 import xyz.playedu.common.annotation.Log;
 import xyz.playedu.common.bus.BackendBus;
+import xyz.playedu.common.constant.BPermissionConstant;
 import xyz.playedu.common.constant.BackendConstant;
 import xyz.playedu.common.constant.BusinessTypeConstant;
 import xyz.playedu.common.context.BCtx;
@@ -62,6 +65,8 @@ public class ResourceController {
     @Autowired private BackendBus backendBus;
 
     @Autowired private CategoryService categoryService;
+
+    @Autowired private VideoSubtitleService videoSubtitleService;
 
     @GetMapping("/index")
     @Log(title = "资源-列表", businessType = BusinessTypeConstant.GET)
@@ -261,6 +266,33 @@ public class ResourceController {
         resourceService.updateNameAndCategoryId(
                 resource.getId(), req.getName(), req.getCategoryId());
         return JsonResponse.success();
+    }
+
+    @BackendPermission(slug = BPermissionConstant.UPLOAD)
+    @PostMapping("/{id}/generate-subtitle")
+    @SneakyThrows
+    @Log(title = "资源-生成字幕", businessType = BusinessTypeConstant.UPDATE)
+    public JsonResponse generateSubtitle(@PathVariable(name = "id") Integer id) {
+        Resource resource = resourceService.findOrFail(id);
+        if (!BackendConstant.RESOURCE_TYPE_VIDEO.equals(resource.getType())) {
+            return JsonResponse.error("仅支持视频资源生成字幕");
+        }
+
+        if (!backendBus.isSuperAdmin() && !resource.getAdminId().equals(BCtx.getId())) {
+            throw new ServiceException("无权限");
+        }
+
+        ResourceExtra extra = resourceExtraService.findByRid(id);
+        if (extra == null) {
+            return JsonResponse.error("视频资源详情不存在");
+        }
+
+        if (!videoSubtitleService.prepareGenerateSubtitle(id)) {
+            return JsonResponse.error("字幕服务未启用或未配置");
+        }
+
+        videoSubtitleService.generateSubtitle(id, BCtx.getId());
+        return JsonResponse.success("字幕生成任务已提交");
     }
 
     private void removeVideoRelatedResources(S3Util s3Util, Integer resourceId) {
