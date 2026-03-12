@@ -29,7 +29,7 @@ const subtitleStyleStorageKey = "playedu:pc:subtitle-style";
 const subtitleFontSizeRange = { min: 12, max: 28 };
 const subtitleBottomRange = { min: 4, max: 20 };
 const subtitleColorOptions = ["#ffffff", "#ffd966", "#7ee787", "#8ab4f8"];
-const firefoxCueStyleElementId = "playedu-pc-firefox-cue-style";
+const useNativeSubtitleRendering = true;
 
 const defaultSubtitleStyle: SubtitleStyleModel = {
   enabled: true,
@@ -98,32 +98,6 @@ const loadSubtitleStyle = (): SubtitleStyleModel => {
   }
 };
 
-const isFirefoxBrowser = () =>
-  typeof navigator !== "undefined" && /firefox/i.test(navigator.userAgent);
-
-const updateFirefoxCueStyle = (
-  videoEl: HTMLVideoElement | null | undefined,
-  style: SubtitleStyleModel
-) => {
-  if (typeof document === "undefined" || !videoEl || !isFirefoxBrowser()) {
-    return;
-  }
-
-  let styleEl = document.getElementById(
-    firefoxCueStyleElementId
-  ) as HTMLStyleElement | null;
-  if (!styleEl) {
-    styleEl = document.createElement("style");
-    styleEl.id = firefoxCueStyleElementId;
-    document.head.appendChild(styleEl);
-  }
-
-  videoEl.setAttribute("data-playedu-firefox-native", "1");
-  styleEl.textContent = `video[data-playedu-firefox-native="1"]::cue { color: ${style.color}; background-color: ${
-    style.backgroundEnabled ? "rgba(0, 0, 0, 0.56)" : "transparent"
-  }; font-size: ${style.fontSize}px; }`;
-};
-
 const applySubtitleStyle = (
   player: any,
   style: SubtitleStyleModel,
@@ -137,6 +111,30 @@ const applySubtitleStyle = (
   }
 
   const visible = style.enabled && !forceHide;
+  if (forceHide) {
+    subtitleEl.style.display = "none";
+    subtitleEl.style.opacity = "0";
+    subtitleEl.style.pointerEvents = "none";
+    subtitleEl.style.position = "";
+    subtitleEl.style.left = "";
+    subtitleEl.style.transform = "";
+    subtitleEl.style.width = "";
+    subtitleEl.style.maxWidth = "";
+    subtitleEl.style.whiteSpace = "";
+    subtitleEl.style.wordBreak = "";
+    subtitleEl.style.textAlign = "";
+    subtitleEl.style.lineHeight = "";
+    subtitleEl.style.fontSize = "";
+    subtitleEl.style.bottom = "";
+    subtitleEl.style.color = "";
+    subtitleEl.style.padding = "";
+    subtitleEl.style.borderRadius = "";
+    subtitleEl.style.background = "";
+    subtitleEl.style.boxShadow = "";
+    subtitleEl.style.textShadow = "";
+    return;
+  }
+
   subtitleEl.style.position = "absolute";
   subtitleEl.style.left = "50%";
   subtitleEl.style.transform = "translateX(-50%)";
@@ -170,24 +168,12 @@ const syncSubtitleState = (
   trackEl: HTMLTrackElement | null,
   style: SubtitleStyleModel
 ) => {
-  const videoEl = player?.video as HTMLVideoElement | undefined;
-  const isPiP =
-    typeof document !== "undefined" &&
-    "pictureInPictureElement" in document &&
-    (document as any).pictureInPictureElement === player?.video;
-  const isFirefox = isFirefoxBrowser();
-
   if (trackEl?.track) {
     trackEl.default = style.enabled;
-    trackEl.track.mode = !style.enabled
-      ? "disabled"
-      : isFirefox || isPiP
-      ? "showing"
-      : "hidden";
+    trackEl.track.mode = style.enabled ? "showing" : "disabled";
   }
 
-  updateFirefoxCueStyle(videoEl, style);
-  applySubtitleStyle(player, style, isPiP || isFirefox);
+  applySubtitleStyle(player, style, useNativeSubtitleRendering);
 };
 
 const installNativeSubtitleTrack = (
@@ -650,78 +636,7 @@ const CoursePalyPage = () => {
                 </button>
               </div>
               <div className={styles["subtitle-row"]}>
-                <div className={styles["subtitle-row-head"]}>
-                  <span>字号</span>
-                  <span>{subtitleStyle.fontSize}px</span>
-                </div>
-                <input
-                  className={styles["subtitle-range"]}
-                  type="range"
-                  min={subtitleFontSizeRange.min}
-                  max={subtitleFontSizeRange.max}
-                  step={1}
-                  value={subtitleStyle.fontSize}
-                  onChange={(event) =>
-                    updateSubtitleStyle({
-                      fontSize: Number(event.target.value),
-                    })
-                  }
-                />
-              </div>
-              <div className={styles["subtitle-row"]}>
-                <div className={styles["subtitle-row-head"]}>
-                  <span>位置</span>
-                  <span>{subtitleStyle.bottomPercent}%</span>
-                </div>
-                <input
-                  className={styles["subtitle-range"]}
-                  type="range"
-                  min={subtitleBottomRange.min}
-                  max={subtitleBottomRange.max}
-                  step={1}
-                  value={subtitleStyle.bottomPercent}
-                  onChange={(event) =>
-                    updateSubtitleStyle({
-                      bottomPercent: Number(event.target.value),
-                    })
-                  }
-                />
-              </div>
-              <div className={styles["subtitle-row"]}>
-                <div className={styles["subtitle-row-head"]}>
-                  <span>底板</span>
-                  <button
-                    className={`${styles["subtitle-switch"]} ${
-                      subtitleStyle.backgroundEnabled
-                        ? styles["subtitle-switch-active"]
-                        : ""
-                    }`}
-                    onClick={() =>
-                      updateSubtitleStyle({
-                        backgroundEnabled: !subtitleStyle.backgroundEnabled,
-                      })
-                    }
-                  >
-                    {subtitleStyle.backgroundEnabled ? "开" : "关"}
-                  </button>
-                </div>
-              </div>
-              <div className={styles["subtitle-row"]}>
-                <span>颜色</span>
-                <div className={styles["subtitle-colors"]}>
-                  {subtitleColorOptions.map((item) => (
-                    <button
-                      key={item}
-                      className={
-                        subtitleStyle.color === item
-                          ? styles["subtitle-color-active"]
-                          : ""
-                      }
-                      style={{ backgroundColor: item }}
-                      onClick={() => updateSubtitleStyle({ color: item })}
-                    />
-                  ))}
-                </div>
+                <span>当前为原生字幕预览模式</span>
               </div>
             </div>
           )}
