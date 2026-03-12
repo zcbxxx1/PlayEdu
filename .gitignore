@@ -1,3 +1,6 @@
 .DS_Store
 *.log
 .env
+tmp/
+playedu_full.sql
+playedu_upgrade_test_verified.sql
