@@ -29,6 +29,7 @@ const subtitleStyleStorageKey = "playedu:h5:subtitle-style";
 const subtitleFontSizeRange = { min: 10, max: 24 };
 const subtitleBottomRange = { min: 6, max: 24 };
 const subtitleColorOptions = ["#ffffff", "#ffd966", "#7ee787", "#8ab4f8"];
+const firefoxCueStyleElementId = "playedu-h5-firefox-cue-style";
 
 const defaultSubtitleStyle: SubtitleStyleModel = {
   enabled: true,
@@ -97,6 +98,32 @@ const loadSubtitleStyle = (): SubtitleStyleModel => {
   }
 };
 
+const isFirefoxBrowser = () =>
+  typeof navigator !== "undefined" && /firefox/i.test(navigator.userAgent);
+
+const updateFirefoxCueStyle = (
+  videoEl: HTMLVideoElement | null | undefined,
+  style: SubtitleStyleModel
+) => {
+  if (typeof document === "undefined" || !videoEl || !isFirefoxBrowser()) {
+    return;
+  }
+
+  let styleEl = document.getElementById(
+    firefoxCueStyleElementId
+  ) as HTMLStyleElement | null;
+  if (!styleEl) {
+    styleEl = document.createElement("style");
+    styleEl.id = firefoxCueStyleElementId;
+    document.head.appendChild(styleEl);
+  }
+
+  videoEl.setAttribute("data-playedu-firefox-native", "1");
+  styleEl.textContent = `video[data-playedu-firefox-native="1"]::cue { color: ${style.color}; background-color: ${
+    style.backgroundEnabled ? "rgba(0, 0, 0, 0.56)" : "transparent"
+  }; font-size: ${style.fontSize}px; }`;
+};
+
 const applySubtitleStyle = (
   player: any,
   style: SubtitleStyleModel,
@@ -143,16 +170,24 @@ const syncSubtitleState = (
   trackEl: HTMLTrackElement | null,
   style: SubtitleStyleModel
 ) => {
+  const videoEl = player?.video as HTMLVideoElement | undefined;
   const isPiP =
     typeof document !== "undefined" &&
     "pictureInPictureElement" in document &&
     (document as any).pictureInPictureElement === player?.video;
+  const isFirefox = isFirefoxBrowser();
 
   if (trackEl?.track) {
-    trackEl.track.mode = !style.enabled ? "disabled" : isPiP ? "showing" : "hidden";
+    trackEl.default = style.enabled;
+    trackEl.track.mode = !style.enabled
+      ? "disabled"
+      : isFirefox || isPiP
+      ? "showing"
+      : "hidden";
   }
 
-  applySubtitleStyle(player, style, isPiP);
+  updateFirefoxCueStyle(videoEl, style);
+  applySubtitleStyle(player, style, isPiP || isFirefox);
 };
 
 const installNativeSubtitleTrack = (
