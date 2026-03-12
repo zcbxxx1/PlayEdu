@@ -29,9 +29,9 @@ services:
       - DB_PORT=3306
       - DB_NAME=playedu
       - DB_USER=root
-      - DB_PASS=${DB_PASS:-rainbow2004}
+      - DB_PASS=${DB_PASS:-Db7Qm2Lp9Xs4Kv8Nc5Rh}
       - SA_TOKEN_IS_CONCURRENT=false
-      - SA_TOKEN_JWT_SECRET_KEY=${PLAYEDU_JWT_KEY:-rainbow2004}
+      - SA_TOKEN_JWT_SECRET_KEY=${PLAYEDU_JWT_KEY:-Jwt9Kx4Lm2Qp7Rs8Vn3T}
       - PLAYEDU_SUBTITLE_ENABLED=${PLAYEDU_SUBTITLE_ENABLED:-true}
       - PLAYEDU_SUBTITLE_AUTO_GENERATE_ON_UPLOAD=${PLAYEDU_SUBTITLE_AUTO_GENERATE_ON_UPLOAD:-true}
       - PLAYEDU_SUBTITLE_PROVIDER=${PLAYEDU_SUBTITLE_PROVIDER:-whisper}
@@ -70,7 +70,7 @@ services:
     restart: unless-stopped
     environment:
       - MYSQL_DATABASE=playedu
-      - MYSQL_ROOT_PASSWORD=${DB_PASS:-rainbow2004}
+      - MYSQL_ROOT_PASSWORD=${DB_PASS:-Db7Qm2Lp9Xs4Kv8Nc5Rh}
       - TZ=UTC
     volumes:
       - mysql-data:/var/lib/mysql
@@ -85,7 +85,7 @@ services:
     restart: unless-stopped
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USERNAME:-zcb}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-rainbow2004}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-Mi6Tp3Vz8Qw2Nk9Ls4Xd}
       - MINIO_DEFAULT_BUCKETS=${MINIO_DEFAULT_BUCKETS:-playedu}
     volumes:
       - minio-data:/bitnami/minio/data

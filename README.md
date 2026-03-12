@@ -47,9 +47,9 @@ cd playedu && docker-compose up -d
 
 可通过 `.env` 调整以下参数：
 
-- `DB_PASS=rainbow2004`
+- `DB_PASS=Db7Qm2Lp9Xs4Kv8Nc5Rh`
 - `MINIO_ROOT_USERNAME=zcb`
-- `MINIO_ROOT_PASSWORD=rainbow2004`
+- `MINIO_ROOT_PASSWORD=Mi6Tp3Vz8Qw2Nk9Ls4Xd`
 - `MINIO_PORT=9002`
 - `MINIO_CONSOLE_PORT=9003`
 - `PLAYEDU_SUBTITLE_ENABLED=true`
@@ -76,6 +76,8 @@ cd playedu && docker-compose up -d
 - `Endpoint` = `http://minio:9000`
 
 如果需要更高识别精度，可以把 `WHISPER_ASR_MODEL` 调整为 `medium` 或 `large-v3`，但 CPU 和内存占用会明显提高。
+
+这些默认密钥仅用于本地快速启动示例，正式环境请在 `.env` 中替换为你自己的随机值。
 
 ## 🔰️ 软件安全
 
