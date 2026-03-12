@@ -10,11 +10,17 @@ import {
   Button,
   Tag,
   Tooltip,
+  Spin,
 } from "antd";
 import type { MenuProps } from "antd";
 import { resource } from "../../../api";
 import { useLocation } from "react-router-dom";
-import { DownOutlined, ExclamationCircleFilled } from "@ant-design/icons";
+import {
+  DownOutlined,
+  ExclamationCircleFilled,
+  DownloadOutlined,
+  EyeOutlined,
+} from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { dateFormat } from "../../../utils/index";
 import { TreeCategory, DurationText } from "../../../compenents";
@@ -80,6 +86,10 @@ const ResourceVideosPage = () => {
   const [updateId, setUpdateId] = useState(0);
   const [playUrl, setPlayUrl] = useState("");
   const [title, setTitle] = useState("");
+  const [subtitlePreviewVisible, setSubtitlePreviewVisible] = useState(false);
+  const [subtitlePreviewTitle, setSubtitlePreviewTitle] = useState("");
+  const [subtitlePreviewContent, setSubtitlePreviewContent] = useState("");
+  const [subtitlePreviewLoading, setSubtitlePreviewLoading] = useState(false);
 
   const subtitleStatusTextMap: Record<string, string> = {
     NONE: "未生成",
@@ -218,6 +228,34 @@ const ResourceVideosPage = () => {
               <Button
                 type="link"
                 className="b-link c-red"
+                icon={<EyeOutlined />}
+                disabled={!videosExtra[record.id]?.subtitle_rid}
+                onClick={() => previewSubtitle(record)}
+              >
+                预览字幕
+              </Button>
+            ),
+          },
+          {
+            key: "4",
+            label: (
+              <Button
+                type="link"
+                className="b-link c-red"
+                icon={<DownloadOutlined />}
+                disabled={!videosExtra[record.id]?.subtitle_rid}
+                onClick={() => downloadSubtitle(record)}
+              >
+                下载字幕
+              </Button>
+            ),
+          },
+          {
+            key: "5",
+            label: (
+              <Button
+                type="link"
+                className="b-link c-red"
                 onClick={() => removeResource(record.id)}
               >
                 删除
@@ -319,6 +357,64 @@ const ResourceVideosPage = () => {
       }));
       pollSubtitleStatus(id);
     });
+  };
+
+  const getSubtitleDetail = (record: DataType) => {
+    const subtitleRid = videosExtra[Number(record.id)]?.subtitle_rid;
+    if (!subtitleRid) {
+      message.warning("当前视频暂无字幕文件");
+      return Promise.reject(new Error("subtitle not found"));
+    }
+    return resource.videoDetail(subtitleRid).then((res: any) => {
+      const subtitle = res.data.resources;
+      const subtitleUrl = res.data.resource_url?.[subtitleRid];
+      if (!subtitleUrl) {
+        throw new Error("subtitle url not found");
+      }
+      return { subtitle, subtitleUrl };
+    });
+  };
+
+  const previewSubtitle = (record: DataType) => {
+    setSubtitlePreviewTitle(`${record.name} 字幕预览`);
+    setSubtitlePreviewContent("");
+    setSubtitlePreviewVisible(true);
+    setSubtitlePreviewLoading(true);
+    getSubtitleDetail(record)
+      .then(({ subtitleUrl }) => fetch(subtitleUrl))
+      .then((resp) => resp.text())
+      .then((content) => {
+        setSubtitlePreviewContent(content);
+      })
+      .catch(() => {
+        message.error("字幕预览加载失败");
+        setSubtitlePreviewVisible(false);
+      })
+      .finally(() => {
+        setSubtitlePreviewLoading(false);
+      });
+  };
+
+  const downloadSubtitle = (record: DataType) => {
+    getSubtitleDetail(record)
+      .then(({ subtitle, subtitleUrl }) => {
+        downLoadFile(subtitleUrl, subtitle.name, subtitle.extension);
+      })
+      .catch(() => {
+        message.error("字幕下载失败");
+      });
+  };
+
+  const downLoadFile = (url: string, name: string, extension: string) => {
+    window.open(url);
+    const a = document.createElement("a");
+    a.style.display = "none";
+    a.href = url;
+    a.download = `${name}.${extension}`;
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   };
 
   // 获取视频列表
@@ -515,6 +611,32 @@ const ResourceVideosPage = () => {
             setRefresh(!refresh);
           }}
         ></VideosUpdateDialog>
+        <Modal
+          title={subtitlePreviewTitle}
+          open={subtitlePreviewVisible}
+          width={860}
+          centered
+          footer={null}
+          onCancel={() => setSubtitlePreviewVisible(false)}
+        >
+          {subtitlePreviewLoading ? (
+            <div className="d-j-flex" style={{ minHeight: 240 }}>
+              <Spin />
+            </div>
+          ) : (
+            <Typography.Paragraph
+              copyable
+              style={{
+                maxHeight: 480,
+                overflowY: "auto",
+                marginBottom: 0,
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {subtitlePreviewContent}
+            </Typography.Paragraph>
+          )}
+        </Modal>
       </div>
     </>
   );

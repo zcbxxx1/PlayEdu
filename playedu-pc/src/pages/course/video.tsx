@@ -10,6 +10,109 @@ import { getPlayId, savePlayId } from "../../utils";
 declare const window: any;
 var timer: any = null;
 
+type SubtitleStyleModel = {
+  bottom: string;
+  color: string;
+  fontSize: string;
+};
+
+const subtitleStyleStorageKey = "playedu:pc:subtitle-style";
+const defaultSubtitleStyle: SubtitleStyleModel = {
+  fontSize: "16px",
+  bottom: "8%",
+  color: "#ffffff",
+};
+
+const subtitleFontSizeOptions = ["14px", "16px", "18px", "20px"];
+const subtitleBottomOptions = [
+  { label: "低", value: "8%" },
+  { label: "中", value: "12%" },
+  { label: "高", value: "16%" },
+];
+const subtitleColorOptions = ["#ffffff", "#ffd966", "#7ee787", "#8ab4f8"];
+
+const loadSubtitleStyle = (): SubtitleStyleModel => {
+  if (typeof window === "undefined") {
+    return defaultSubtitleStyle;
+  }
+
+  try {
+    const saved = window.localStorage.getItem(subtitleStyleStorageKey);
+    if (!saved) {
+      return defaultSubtitleStyle;
+    }
+    return { ...defaultSubtitleStyle, ...JSON.parse(saved) };
+  } catch (error) {
+    return defaultSubtitleStyle;
+  }
+};
+
+const applySubtitleStyle = (player: any, style: SubtitleStyleModel) => {
+  const subtitleEl = player?.container?.querySelector(
+    ".dplayer-subtitle"
+  ) as HTMLElement | null;
+  if (!subtitleEl) {
+    return;
+  }
+
+  subtitleEl.style.fontSize = style.fontSize;
+  subtitleEl.style.bottom = style.bottom;
+  subtitleEl.style.color = style.color;
+};
+
+const installNativeSubtitleTrack = (
+  player: any,
+  subtitleUrl: string,
+  styleRef: React.MutableRefObject<SubtitleStyleModel>
+) => {
+  const videoEl = player?.video as HTMLVideoElement | undefined;
+  if (!videoEl || !subtitleUrl) {
+    return;
+  }
+
+  const existingTrack = videoEl.querySelector(
+    'track[data-playedu-subtitle="1"]'
+  );
+  if (existingTrack) {
+    existingTrack.remove();
+  }
+
+  const track = document.createElement("track");
+  track.kind = "subtitles";
+  track.label = "中文字幕";
+  track.srclang = "zh";
+  track.src = subtitleUrl;
+  track.default = false;
+  track.setAttribute("data-playedu-subtitle", "1");
+  videoEl.appendChild(track);
+
+  const syncSubtitleMode = () => {
+    const subtitleEl = player?.container?.querySelector(
+      ".dplayer-subtitle"
+    ) as HTMLElement | null;
+    const isPiP =
+      typeof document !== "undefined" &&
+      "pictureInPictureElement" in document &&
+      (document as any).pictureInPictureElement === videoEl;
+
+    if (track.track) {
+      track.track.mode = isPiP ? "showing" : "disabled";
+    }
+
+    if (subtitleEl) {
+      subtitleEl.style.opacity = isPiP ? "0" : "1";
+      if (!isPiP) {
+        applySubtitleStyle(player, styleRef.current);
+      }
+    }
+  };
+
+  track.addEventListener("load", syncSubtitleMode);
+  videoEl.addEventListener("enterpictureinpicture", syncSubtitleMode);
+  videoEl.addEventListener("leavepictureinpicture", syncSubtitleMode);
+  syncSubtitleMode();
+};
+
 const CoursePalyPage = () => {
   const navigate = useNavigate();
   const params = useParams();
@@ -27,10 +130,15 @@ const CoursePalyPage = () => {
   const [playingTime, setPlayingTime] = useState(0);
   const [watchedSeconds, setWatchedSeconds] = useState(0);
   const [resourceUrl, setResourceUrl] = useState<ResourceUrlModel>({});
+  const [subtitleUrl, setSubtitleUrl] = useState("");
+  const [subtitleStyle, setSubtitleStyle] =
+    useState<SubtitleStyleModel>(loadSubtitleStyle);
+  const [subtitlePanelVisible, setSubtitlePanelVisible] = useState(false);
   const myRef = useRef(0);
   const playRef = useRef(0);
   const watchRef = useRef(0);
   const totalRef = useRef(0);
+  const subtitleStyleRef = useRef<SubtitleStyleModel>(loadSubtitleStyle());
   const [checkPlayerStatus, setCheckPlayerStatus] = useState(false);
 
   useEffect(() => {
@@ -57,6 +165,17 @@ const CoursePalyPage = () => {
   useEffect(() => {
     totalRef.current = hour?.duration || 0;
   }, [hour]);
+
+  useEffect(() => {
+    subtitleStyleRef.current = subtitleStyle;
+    window.localStorage.setItem(
+      subtitleStyleStorageKey,
+      JSON.stringify(subtitleStyle)
+    );
+    if (window.player) {
+      applySubtitleStyle(window.player, subtitleStyle);
+    }
+  }, [subtitleStyle]);
 
   const getCourse = () => {
     Course.detail(Number(params.courseId)).then((res: any) => {
@@ -119,6 +238,7 @@ const CoursePalyPage = () => {
       (res: any) => {
         setResourceUrl(res.data.resource_url[rid]);
         setPlayUrl(res.data.resource_url[rid]);
+        setSubtitleUrl(res.data.subtitle_url || "");
         initDPlayer(res.data.resource_url[rid], 0, data, res.data.subtitle_url);
         savePlayId(String(params.courseId) + "-" + String(params.hourId));
       }
@@ -160,12 +280,20 @@ const CoursePalyPage = () => {
       options.subtitle = {
         url: subtitleUrl,
         type: "webvtt",
-        fontSize: "16px",
-        bottom: "8%",
-        color: "#ffffff",
+        fontSize: subtitleStyleRef.current.fontSize,
+        bottom: subtitleStyleRef.current.bottom,
+        color: subtitleStyleRef.current.color,
       };
     }
     window.player = new window.DPlayer(options);
+    if (subtitleUrl) {
+      applySubtitleStyle(window.player, subtitleStyleRef.current);
+      installNativeSubtitleTrack(
+        window.player,
+        subtitleUrl,
+        subtitleStyleRef
+      );
+    }
     // 监听播放进度更新evt
     window.player.on("timeupdate", () => {
       let currentTime = parseInt(window.player.video.currentTime);
@@ -257,6 +385,13 @@ const CoursePalyPage = () => {
     }
   };
 
+  const updateSubtitleStyle = (patch: Partial<SubtitleStyleModel>) => {
+    setSubtitleStyle((prev) => ({
+      ...prev,
+      ...patch,
+    }));
+  };
+
   return (
     <div className={styles["video-mask"]}>
       <div className={styles["top-cont"]}>
@@ -277,6 +412,75 @@ const CoursePalyPage = () => {
       <div className={styles["video-body"]}>
         <div className={styles["video-title"]}>{hour?.title}</div>
         <div className={styles["video-box"]}>
+          {subtitleUrl && (
+            <div className={styles["subtitle-tools"]}>
+              <button
+                className={styles["subtitle-toggle"]}
+                onClick={() => setSubtitlePanelVisible(!subtitlePanelVisible)}
+              >
+                字幕设置
+              </button>
+              {subtitlePanelVisible && (
+                <div className={styles["subtitle-panel"]}>
+                  <div className={styles["subtitle-row"]}>
+                    <span>字号</span>
+                    <div className={styles["subtitle-options"]}>
+                      {subtitleFontSizeOptions.map((item) => (
+                        <button
+                          key={item}
+                          className={
+                            subtitleStyle.fontSize === item
+                              ? styles["subtitle-option-active"]
+                              : ""
+                          }
+                          onClick={() => updateSubtitleStyle({ fontSize: item })}
+                        >
+                          {item.replace("px", "")}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className={styles["subtitle-row"]}>
+                    <span>位置</span>
+                    <div className={styles["subtitle-options"]}>
+                      {subtitleBottomOptions.map((item) => (
+                        <button
+                          key={item.value}
+                          className={
+                            subtitleStyle.bottom === item.value
+                              ? styles["subtitle-option-active"]
+                              : ""
+                          }
+                          onClick={() =>
+                            updateSubtitleStyle({ bottom: item.value })
+                          }
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className={styles["subtitle-row"]}>
+                    <span>颜色</span>
+                    <div className={styles["subtitle-colors"]}>
+                      {subtitleColorOptions.map((item) => (
+                        <button
+                          key={item}
+                          className={
+                            subtitleStyle.color === item
+                              ? styles["subtitle-color-active"]
+                              : ""
+                          }
+                          style={{ backgroundColor: item }}
+                          onClick={() => updateSubtitleStyle({ color: item })}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <div
             className="play-box"
             id="meedu-player-container"
