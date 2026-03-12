@@ -419,6 +419,30 @@ const ResourceVideosPage = () => {
     });
   };
 
+  const regenerateSubtitleMulti = () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning("请选择需要生成字幕的视频");
+      return;
+    }
+    resource.generateSubtitleMulti(selectedRowKeys).then((res: any) => {
+      message.success(res.msg || "批量字幕生成任务已提交");
+      setVideoExtra((prev) => {
+        const next = { ...prev };
+        selectedRowKeys.forEach((id: number) => {
+          next[id] = {
+            ...(next[id] || { duration: 0, poster: "", rid: id }),
+            subtitle_error: "",
+            subtitle_status: "PENDING",
+          };
+        });
+        return next;
+      });
+      selectedRowKeys.forEach((id: number) => pollSubtitleStatus(Number(id)));
+      setSubtitleTaskPage(1);
+      setSubtitleTaskVisible(true);
+    });
+  };
+
   const getSubtitleDetail = (record: DataType) => {
     const subtitleRid = videosExtra[Number(record.id)]?.subtitle_rid;
     if (!subtitleRid) {
@@ -793,11 +817,16 @@ const ResourceVideosPage = () => {
                 type="default"
                 className="ml-16"
                 onClick={() => {
+                  if (multiConfig) {
+                    regenerateSubtitleMulti();
+                    return;
+                  }
                   setSubtitleTaskPage(1);
                   setSubtitleTaskVisible(true);
                 }}
+                disabled={multiConfig && selectedRowKeys.length === 0}
               >
-                字幕任务
+                {multiConfig ? "批量生成字幕" : "字幕任务"}
               </Button>
               <Button
                 className="ml-16"

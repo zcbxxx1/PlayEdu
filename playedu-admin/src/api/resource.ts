@@ -73,3 +73,9 @@ export function videoUpdate(id: number, params: any) {
 export function generateSubtitle(id: number) {
   return client.post(`/backend/v1/resource/${id}/generate-subtitle`, {});
 }
+
+export function generateSubtitleMulti(ids: number[]) {
+  return client.post(`/backend/v1/resource/generate-subtitle-multi`, {
+    ids,
+  });
+}

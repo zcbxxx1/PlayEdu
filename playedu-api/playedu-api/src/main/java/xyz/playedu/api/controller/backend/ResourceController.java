@@ -298,6 +298,46 @@ public class ResourceController {
         return JsonResponse.success("字幕生成任务已提交");
     }
 
+    @BackendPermission(slug = BPermissionConstant.UPLOAD)
+    @PostMapping("/generate-subtitle-multi")
+    @SneakyThrows
+    @Log(title = "资源-批量生成字幕", businessType = BusinessTypeConstant.UPDATE)
+    public JsonResponse generateSubtitleMulti(@RequestBody ResourceDestroyMultiRequest req) {
+        if (req.getIds() == null || req.getIds().isEmpty()) {
+            return JsonResponse.error("请选择需要生成字幕的视频");
+        }
+
+        if (!videoSubtitleService.canGenerateSubtitle()) {
+            return JsonResponse.error(videoSubtitleService.getSubtitleUnavailableReason());
+        }
+
+        List<Resource> resources = resourceService.chunks(req.getIds());
+        if (resources == null || resources.isEmpty()) {
+            return JsonResponse.error("未找到可生成字幕的视频资源");
+        }
+
+        int queuedCount = 0;
+        for (Resource resource : resources) {
+            if (!BackendConstant.RESOURCE_TYPE_VIDEO.equals(resource.getType())) {
+                continue;
+            }
+            if (!backendBus.isSuperAdmin() && !resource.getAdminId().equals(BCtx.getId())) {
+                throw new ServiceException("无权限");
+            }
+            if (resourceExtraService.findByRid(resource.getId()) == null) {
+                continue;
+            }
+            subtitleTaskQueueService.enqueueManualTask(resource.getId(), BCtx.getId());
+            queuedCount++;
+        }
+
+        if (queuedCount == 0) {
+            return JsonResponse.error("选中的资源中没有可生成字幕的视频");
+        }
+
+        return JsonResponse.success("已提交" + queuedCount + "个字幕生成任务");
+    }
+
     private void removeVideoRelatedResources(S3Util s3Util, Integer resourceId) {
         ResourceExtra resourceExtra = resourceExtraService.findByRid(resourceId);
         if (resourceExtra == null) {
