@@ -17,10 +17,11 @@ FROM registry.cn-hangzhou.aliyuncs.com/hzbs/eclipse-temurin:17 AS java-builder
 
 ARG PLAYEDU_BUILD_STAMP=dev
 COPY playedu-api /app
+COPY docker/maven/settings.xml /root/.m2/settings.xml
 
 WORKDIR /app
 
-RUN sed -i 's/\r$//' /app/mvnw && chmod +x /app/mvnw && /app/mvnw -Dmaven.test.skip=true clean package
+RUN sed -i 's/\r$//' /app/mvnw && chmod +x /app/mvnw && /app/mvnw -s /root/.m2/settings.xml -Dmaven.test.skip=true clean package
 
 FROM registry.cn-hangzhou.aliyuncs.com/hzbs/eclipse-temurin:17 AS base
 
