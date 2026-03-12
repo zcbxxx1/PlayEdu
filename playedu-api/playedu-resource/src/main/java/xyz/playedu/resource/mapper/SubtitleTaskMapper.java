@@ -16,8 +16,24 @@
 package xyz.playedu.resource.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import java.util.Date;
+import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 import xyz.playedu.resource.domain.SubtitleTask;
 
 @Mapper
-public interface SubtitleTaskMapper extends BaseMapper<SubtitleTask> {}
+public interface SubtitleTaskMapper extends BaseMapper<SubtitleTask> {
+
+    IPage<SubtitleTask> paginatePage(
+            Page<SubtitleTask> page, @Param("status") String status);
+
+    List<SubtitleTask> selectClaimCandidates(
+            @Param("limit") Integer limit, @Param("now") Date now);
+
+    List<SubtitleTask> selectPendingQueue();
+
+    Long selectMaxQueueSort();
+}

@@ -32,6 +32,7 @@ public class SubtitleTask implements Serializable {
     public static final String STATUS_PROCESSING = "PROCESSING";
     public static final String STATUS_SUCCESS = "SUCCESS";
     public static final String STATUS_FAILED = "FAILED";
+    public static final String STATUS_CANCELED = "CANCELED";
 
     public static final String TRIGGER_UPLOAD = "UPLOAD";
     public static final String TRIGGER_MANUAL = "MANUAL";
@@ -74,6 +75,9 @@ public class SubtitleTask implements Serializable {
 
     @JsonProperty("next_run_at")
     private Date nextRunAt;
+
+    @JsonProperty("queue_sort")
+    private Long queueSort;
 
     @JsonProperty("created_at")
     private Date createdAt;

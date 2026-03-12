@@ -23,7 +23,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
+import xyz.playedu.common.exception.ServiceException;
 import xyz.playedu.common.types.paginate.PaginationResult;
 import xyz.playedu.resource.domain.SubtitleTask;
 import xyz.playedu.resource.mapper.SubtitleTaskMapper;
@@ -54,6 +56,7 @@ public class SubtitleTaskServiceImpl extends ServiceImpl<SubtitleTaskMapper, Sub
         task.setErrorMessage("");
         task.setDurationSeconds(0);
         task.setNextRunAt(now);
+        task.setQueueSort(getNextQueueSort());
         task.setCreatedAt(now);
         task.setUpdatedAt(now);
         save(task);
@@ -73,13 +76,7 @@ public class SubtitleTaskServiceImpl extends ServiceImpl<SubtitleTaskMapper, Sub
     @Override
     public PaginationResult<SubtitleTask> paginate(Integer page, Integer size, String status) {
         Page<SubtitleTask> pageObj = new Page<>(page, size);
-        QueryWrapper<SubtitleTask> wrapper = new QueryWrapper<>();
-        if (status != null && !status.trim().isEmpty()) {
-            wrapper.eq("status", status);
-        }
-        wrapper.orderByDesc("id");
-
-        IPage<SubtitleTask> iPage = page(pageObj, wrapper);
+        IPage<SubtitleTask> iPage = getBaseMapper().paginatePage(pageObj, status);
         PaginationResult<SubtitleTask> result = new PaginationResult<>();
         result.setData(iPage.getRecords());
         result.setTotal(iPage.getTotal());
@@ -99,13 +96,7 @@ public class SubtitleTaskServiceImpl extends ServiceImpl<SubtitleTaskMapper, Sub
             return new ArrayList<>();
         }
 
-        QueryWrapper<SubtitleTask> wrapper = new QueryWrapper<>();
-        wrapper.eq("status", SubtitleTask.STATUS_PENDING)
-                .le("next_run_at", now)
-                .orderByAsc("id")
-                .last("limit " + limit);
-
-        List<SubtitleTask> candidates = list(wrapper);
+        List<SubtitleTask> candidates = getBaseMapper().selectClaimCandidates(limit, now);
         List<SubtitleTask> claimed = new ArrayList<>();
         for (SubtitleTask candidate : candidates) {
             LambdaUpdateWrapper<SubtitleTask> updateWrapper = new LambdaUpdateWrapper<>();
@@ -123,6 +114,65 @@ public class SubtitleTaskServiceImpl extends ServiceImpl<SubtitleTaskMapper, Sub
             }
         }
         return claimed;
+    }
+
+    @Override
+    @Transactional
+    public void cancelTask(Integer taskId) {
+        SubtitleTask task = getById(taskId);
+        if (task == null) {
+            throw new ServiceException("字幕任务不存在");
+        }
+        if (!SubtitleTask.STATUS_PENDING.equals(task.getStatus())) {
+            throw new ServiceException("仅支持取消排队中的字幕任务");
+        }
+
+        Date now = new Date();
+        SubtitleTask updateItem = new SubtitleTask();
+        updateItem.setId(taskId);
+        updateItem.setStatus(SubtitleTask.STATUS_CANCELED);
+        updateItem.setErrorMessage("任务已取消");
+        updateItem.setFinishedAt(now);
+        updateItem.setUpdatedAt(now);
+        updateById(updateItem);
+    }
+
+    @Override
+    @Transactional
+    public void movePendingTask(Integer taskId, String direction) {
+        SubtitleTask task = getById(taskId);
+        if (task == null) {
+            throw new ServiceException("字幕任务不存在");
+        }
+        if (!SubtitleTask.STATUS_PENDING.equals(task.getStatus())) {
+            throw new ServiceException("仅支持调整排队中的字幕任务顺序");
+        }
+
+        List<SubtitleTask> pendingTasks = getBaseMapper().selectPendingQueue();
+        if (pendingTasks.isEmpty()) {
+            return;
+        }
+
+        int currentIndex = -1;
+        for (int i = 0; i < pendingTasks.size(); i++) {
+            if (taskId.equals(pendingTasks.get(i).getId())) {
+                currentIndex = i;
+                break;
+            }
+        }
+        if (currentIndex < 0) {
+            throw new ServiceException("字幕任务不在排队列表中");
+        }
+
+        SubtitleTask currentTask = pendingTasks.remove(currentIndex);
+        switch (direction == null ? "" : direction.toUpperCase()) {
+            case "TOP" -> pendingTasks.add(0, currentTask);
+            case "UP" -> pendingTasks.add(Math.max(0, currentIndex - 1), currentTask);
+            case "DOWN" -> pendingTasks.add(Math.min(pendingTasks.size(), currentIndex + 1), currentTask);
+            default -> throw new ServiceException("不支持的调整方向");
+        }
+
+        rebuildQueueSort(pendingTasks);
     }
 
     @Override
@@ -182,5 +232,21 @@ public class SubtitleTaskServiceImpl extends ServiceImpl<SubtitleTaskMapper, Sub
                         SubtitleTask::getErrorMessage,
                         "服务重启后自动恢复到队列，等待重新执行");
         return getBaseMapper().update(null, updateWrapper);
+    }
+
+    private long getNextQueueSort() {
+        Long maxQueueSort = getBaseMapper().selectMaxQueueSort();
+        return (maxQueueSort == null ? 0L : maxQueueSort) + 1L;
+    }
+
+    private void rebuildQueueSort(List<SubtitleTask> pendingTasks) {
+        Date now = new Date();
+        for (int i = 0; i < pendingTasks.size(); i++) {
+            SubtitleTask task = new SubtitleTask();
+            task.setId(pendingTasks.get(i).getId());
+            task.setQueueSort((long) i + 1);
+            task.setUpdatedAt(now);
+            updateById(task);
+        }
     }
 }

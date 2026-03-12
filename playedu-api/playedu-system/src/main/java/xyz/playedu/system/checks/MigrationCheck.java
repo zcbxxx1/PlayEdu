@@ -769,6 +769,34 @@ public class MigrationCheck implements CommandLineRunner {
                     add(
                             new HashMap<>() {
                                 {
+                                    put("table", "");
+                                    put("name", "20260312_23_55_00_subtitle_tasks_queue_sort");
+                                    put(
+                                            "sql",
+                                            """
+                                                    ALTER TABLE `subtitle_tasks`
+                                                      ADD COLUMN `queue_sort` bigint(20) NOT NULL DEFAULT 0 COMMENT '排队顺序' AFTER `next_run_at`,
+                                                      ADD KEY `status_queue_sort` (`status`,`queue_sort`);
+                                                    """);
+                                }
+                            });
+                    add(
+                            new HashMap<>() {
+                                {
+                                    put("table", "");
+                                    put("name", "20260312_23_56_00_subtitle_tasks_queue_sort_init");
+                                    put(
+                                            "sql",
+                                            """
+                                                    UPDATE `subtitle_tasks`
+                                                    SET `queue_sort` = `id`
+                                                    WHERE `queue_sort` = 0;
+                                                    """);
+                                }
+                            });
+                    add(
+                            new HashMap<>() {
+                                {
                                     put("table", "ldap_department");
                                     put("name", "20240322_17_29_30_ldap_department");
                                     put(

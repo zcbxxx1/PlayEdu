@@ -22,6 +22,10 @@ import {
   ExclamationCircleFilled,
   DownloadOutlined,
   EyeOutlined,
+  VerticalAlignTopOutlined,
+  ArrowUpOutlined,
+  ArrowDownOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { dateFormat } from "../../../utils/index";
@@ -141,6 +145,7 @@ const ResourceVideosPage = () => {
     PROCESSING: "生成中",
     SUCCESS: "已生成",
     FAILED: "失败",
+    CANCELED: "已取消",
   };
 
   const subtitleStatusColorMap: Record<string, string> = {
@@ -149,6 +154,7 @@ const ResourceVideosPage = () => {
     PROCESSING: "processing",
     SUCCESS: "success",
     FAILED: "error",
+    CANCELED: "default",
   };
 
   const subtitleTaskStatusTextMap: Record<string, string> = {
@@ -156,6 +162,7 @@ const ResourceVideosPage = () => {
     PROCESSING: "处理中",
     SUCCESS: "已完成",
     FAILED: "失败",
+    CANCELED: "已取消",
   };
 
   const subtitleTaskStatusColorMap: Record<string, string> = {
@@ -163,6 +170,7 @@ const ResourceVideosPage = () => {
     PROCESSING: "processing",
     SUCCESS: "success",
     FAILED: "error",
+    CANCELED: "default",
   };
 
   useEffect(() => {
@@ -535,6 +543,24 @@ const ResourceVideosPage = () => {
       });
   };
 
+  const handleSubtitleTaskCancel = (task: SubtitleTaskModel) => {
+    subtitleTask.cancelTask(task.id).then((res: any) => {
+      message.success(res.msg || "字幕任务已取消");
+      getSubtitleTaskList(false);
+      getVideoList(false);
+    });
+  };
+
+  const handleSubtitleTaskMove = (
+    task: SubtitleTaskModel,
+    direction: "TOP" | "UP" | "DOWN"
+  ) => {
+    subtitleTask.moveTask(task.id, direction).then((res: any) => {
+      message.success(res.msg || "字幕任务顺序已更新");
+      getSubtitleTaskList(false);
+    });
+  };
+
   useEffect(() => {
     if (!subtitleTaskVisible) {
       return;
@@ -570,6 +596,9 @@ const ResourceVideosPage = () => {
     if (task.status === "FAILED") {
       return 100;
     }
+    if (task.status === "CANCELED") {
+      return 100;
+    }
     if (task.status === "PENDING") {
       return 5;
     }
@@ -603,8 +632,30 @@ const ResourceVideosPage = () => {
     {
       title: "视频",
       dataIndex: "resource_id",
-      render: (resourceId: number) =>
-        subtitleTaskResources[resourceId]?.name || `资源#${resourceId}`,
+      width: 280,
+      render: (resourceId: number) => {
+        const name = subtitleTaskResources[resourceId]?.name || `资源#${resourceId}`;
+        return (
+          <Tooltip title={name}>
+            <Typography.Text
+              ellipsis={{ tooltip: false }}
+              style={{ maxWidth: 240, display: "inline-block" }}
+            >
+              {name}
+            </Typography.Text>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: "视频时长",
+      dataIndex: "resource_id",
+      width: 110,
+      render: (resourceId: number) => (
+        <DurationText
+          duration={subtitleTaskResourceExtras[resourceId]?.duration || 0}
+        ></DurationText>
+      ),
     },
     {
       title: "状态",
@@ -623,7 +674,7 @@ const ResourceVideosPage = () => {
       render: (_, record) => {
         const percent = getSubtitleTaskProgress(record);
         const status =
-          record.status === "FAILED"
+          record.status === "FAILED" || record.status === "CANCELED"
             ? "exception"
             : record.status === "SUCCESS"
             ? "success"
@@ -688,6 +739,55 @@ const ResourceVideosPage = () => {
               {value}
             </Typography.Text>
           </Tooltip>
+        );
+      },
+    },
+    {
+      title: "操作",
+      key: "action",
+      width: 210,
+      render: (_, record) => {
+        const canMove = record.status === "PENDING";
+        const canCancel = record.status === "PENDING";
+        return (
+          <Space size="small" wrap>
+            <Button
+              type="link"
+              className="b-link c-red"
+              icon={<VerticalAlignTopOutlined />}
+              disabled={!canMove}
+              onClick={() => handleSubtitleTaskMove(record, "TOP")}
+            >
+              置顶
+            </Button>
+            <Button
+              type="link"
+              className="b-link c-red"
+              icon={<ArrowUpOutlined />}
+              disabled={!canMove}
+              onClick={() => handleSubtitleTaskMove(record, "UP")}
+            >
+              上移
+            </Button>
+            <Button
+              type="link"
+              className="b-link c-red"
+              icon={<ArrowDownOutlined />}
+              disabled={!canMove}
+              onClick={() => handleSubtitleTaskMove(record, "DOWN")}
+            >
+              下移
+            </Button>
+            <Button
+              type="link"
+              className="b-link c-red"
+              icon={<StopOutlined />}
+              disabled={!canCancel}
+              onClick={() => handleSubtitleTaskCancel(record)}
+            >
+              取消
+            </Button>
+          </Space>
         );
       },
     },
@@ -953,6 +1053,7 @@ const ResourceVideosPage = () => {
                 { label: "处理中", value: "PROCESSING" },
                 { label: "已完成", value: "SUCCESS" },
                 { label: "失败", value: "FAILED" },
+                { label: "已取消", value: "CANCELED" },
               ]}
             />
             <Button onClick={() => getSubtitleTaskList()}>刷新</Button>

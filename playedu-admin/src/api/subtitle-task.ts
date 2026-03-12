@@ -7,3 +7,13 @@ export function taskList(page: number, size: number, status: string) {
     status,
   });
 }
+
+export function cancelTask(id: number) {
+  return client.post(`/backend/v1/subtitle-tasks/${id}/cancel`, {});
+}
+
+export function moveTask(id: number, direction: string) {
+  return client.put(`/backend/v1/subtitle-tasks/${id}/move`, {
+    direction,
+  });
+}

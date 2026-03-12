@@ -39,6 +39,10 @@ public interface SubtitleTaskService extends IService<SubtitleTask> {
 
     List<SubtitleTask> claimPendingTasks(Integer limit, Date now);
 
+    void cancelTask(Integer taskId);
+
+    void movePendingTask(Integer taskId, String direction);
+
     void markRetryPending(Integer taskId, String errorMessage, Date nextRunAt, String triggerSource);
 
     void markSuccess(Integer taskId, Integer durationSeconds);

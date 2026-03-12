@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="xyz.playedu.resource.mapper.SubtitleTaskMapper">
+
+    <resultMap id="BaseResultMap" type="xyz.playedu.resource.domain.SubtitleTask">
+        <id property="id" column="id" jdbcType="INTEGER"/>
+        <result property="resourceId" column="resource_id" jdbcType="INTEGER"/>
+        <result property="adminId" column="admin_id" jdbcType="INTEGER"/>
+        <result property="status" column="status" jdbcType="VARCHAR"/>
+        <result property="attempts" column="attempts" jdbcType="INTEGER"/>
+        <result property="maxAttempts" column="max_attempts" jdbcType="INTEGER"/>
+        <result property="provider" column="provider" jdbcType="VARCHAR"/>
+        <result property="language" column="language" jdbcType="VARCHAR"/>
+        <result property="triggerSource" column="trigger_source" jdbcType="VARCHAR"/>
+        <result property="errorMessage" column="error_message" jdbcType="VARCHAR"/>
+        <result property="durationSeconds" column="duration_seconds" jdbcType="INTEGER"/>
+        <result property="startedAt" column="started_at" jdbcType="TIMESTAMP"/>
+        <result property="finishedAt" column="finished_at" jdbcType="TIMESTAMP"/>
+        <result property="nextRunAt" column="next_run_at" jdbcType="TIMESTAMP"/>
+        <result property="queueSort" column="queue_sort" jdbcType="BIGINT"/>
+        <result property="createdAt" column="created_at" jdbcType="TIMESTAMP"/>
+        <result property="updatedAt" column="updated_at" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,resource_id,admin_id,status,attempts,max_attempts,provider,language,
+        trigger_source,error_message,duration_seconds,started_at,finished_at,
+        next_run_at,queue_sort,created_at,updated_at
+    </sql>
+
+    <select id="paginatePage" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM `subtitle_tasks`
+        <where>
+            <if test="status != null and status != ''">
+                `status` = #{status}
+            </if>
+        </where>
+        ORDER BY
+            CASE
+                WHEN `status` = 'PROCESSING' THEN 0
+                WHEN `status` = 'PENDING' THEN 1
+                WHEN `status` = 'FAILED' THEN 2
+                WHEN `status` = 'SUCCESS' THEN 3
+                WHEN `status` = 'CANCELED' THEN 4
+                ELSE 5
+            END ASC,
+            CASE
+                WHEN `status` = 'PROCESSING' THEN COALESCE(`started_at`, `created_at`)
+                ELSE NULL
+            END ASC,
+            CASE
+                WHEN `status` = 'PENDING' THEN COALESCE(NULLIF(`queue_sort`, 0), `id`)
+                ELSE NULL
+            END ASC,
+            `id` DESC
+    </select>
+
+    <select id="selectClaimCandidates" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM `subtitle_tasks`
+        WHERE `status` = 'PENDING'
+          AND `next_run_at` &lt;= #{now}
+        ORDER BY COALESCE(NULLIF(`queue_sort`, 0), `id`) ASC, `id` ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectPendingQueue" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM `subtitle_tasks`
+        WHERE `status` = 'PENDING'
+        ORDER BY COALESCE(NULLIF(`queue_sort`, 0), `id`) ASC, `id` ASC
+    </select>
+
+    <select id="selectMaxQueueSort" resultType="java.lang.Long">
+        SELECT COALESCE(MAX(`queue_sort`), 0)
+        FROM `subtitle_tasks`
+    </select>
+</mapper>
