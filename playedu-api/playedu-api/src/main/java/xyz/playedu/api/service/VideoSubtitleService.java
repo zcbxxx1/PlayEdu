@@ -21,13 +21,13 @@ import java.util.List;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import xyz.playedu.api.service.subtitle.AudioExtractor;
 import xyz.playedu.api.service.subtitle.SubtitleProviderClient;
 import xyz.playedu.api.service.subtitle.SubtitleProviderRequest;
 import xyz.playedu.common.config.PlayEduConfig;
 import xyz.playedu.common.constant.BackendConstant;
+import xyz.playedu.common.exception.ServiceException;
 import xyz.playedu.common.service.AppConfigService;
 import xyz.playedu.common.util.S3Util;
 import xyz.playedu.common.util.StringUtil;
@@ -58,36 +58,43 @@ public class VideoSubtitleService {
 
     @Autowired private List<SubtitleProviderClient> subtitleProviderClients;
 
-    public boolean prepareGenerateSubtitle(Integer resourceId) {
-        if (!Boolean.TRUE.equals(playEduConfig.getSubtitleEnabled())
-                || !Boolean.TRUE.equals(playEduConfig.getSubtitleAutoGenerateOnUpload())) {
-            return false;
-        }
+    public boolean canGenerateSubtitle() {
+        return getSubtitleUnavailableReason() == null;
+    }
 
+    public boolean canAutoGenerateSubtitle() {
+        return canGenerateSubtitle()
+                && Boolean.TRUE.equals(playEduConfig.getSubtitleAutoGenerateOnUpload());
+    }
+
+    public String getSubtitleUnavailableReason() {
+        if (!Boolean.TRUE.equals(playEduConfig.getSubtitleEnabled())) {
+            return "字幕服务未启用";
+        }
         if (StringUtil.isEmpty(playEduConfig.getSubtitleProviderUrl())) {
-            log.warn("字幕服务未配置provider-url,跳过自动生成字幕,resourceId={}", resourceId);
-            return false;
+            return "字幕服务未配置provider-url";
         }
+        return null;
+    }
 
+    public void markSubtitlePending(Integer resourceId, String subtitleError) {
         resourceExtraService.updateSubtitle(
                 resourceId,
                 null,
                 STATUS_PENDING,
                 playEduConfig.getSubtitleLanguage(),
-                "");
-        return true;
+                subtitleError == null ? "" : subtitleError);
     }
 
-    @Async
     public void generateSubtitle(Integer resourceId, Integer adminId) {
         Resource resource = resourceService.getById(resourceId);
         if (resource == null || !BackendConstant.RESOURCE_TYPE_VIDEO.equals(resource.getType())) {
-            return;
+            throw new ServiceException("视频资源不存在或已被删除");
         }
 
         ResourceExtra extra = resourceExtraService.findByRid(resourceId);
         if (extra == null) {
-            return;
+            throw new ServiceException("视频资源详情不存在");
         }
 
         resourceExtraService.updateSubtitle(
@@ -125,12 +132,7 @@ public class VideoSubtitleService {
                     subtitleContent.getBytes(StandardCharsets.UTF_8).length);
         } catch (Exception e) {
             log.error("自动生成字幕失败,resourceId={}", resourceId, e);
-            resourceExtraService.updateSubtitle(
-                    resourceId,
-                    0,
-                    STATUS_FAILED,
-                    normalizeLanguage(playEduConfig.getSubtitleLanguage()),
-                    truncateError(e.getMessage()));
+            throw wrapGenerationException(e);
         } finally {
             if (tempFile != null && tempFile.exists() && !tempFile.delete()) {
                 log.warn("临时视频文件删除失败,path={}", tempFile.getAbsolutePath());
@@ -240,10 +242,10 @@ public class VideoSubtitleService {
         return StringUtil.isEmpty(language) ? "zh" : language;
     }
 
-    private String truncateError(String error) {
-        if (StringUtil.isEmpty(error)) {
-            return "字幕生成失败";
+    private RuntimeException wrapGenerationException(Exception e) {
+        if (e instanceof RuntimeException runtimeException) {
+            return runtimeException;
         }
-        return error.length() > 250 ? error.substring(0, 250) : error;
+        return new IllegalStateException("字幕生成失败", e);
     }
 }

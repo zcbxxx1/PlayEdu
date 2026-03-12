@@ -74,6 +74,18 @@ public class PlayEduConfig {
     @Value("${playedu.subtitle.audio-channels:1}")
     private Integer subtitleAudioChannels;
 
+    @Value("${playedu.subtitle.queue.concurrency:1}")
+    private Integer subtitleQueueConcurrency;
+
+    @Value("${playedu.subtitle.queue.poll-interval-ms:5000}")
+    private Long subtitleQueuePollIntervalMs;
+
+    @Value("${playedu.subtitle.queue.retry-max-attempts:3}")
+    private Integer subtitleQueueRetryMaxAttempts;
+
+    @Value("${playedu.subtitle.queue.retry-delay-seconds:60}")
+    private Integer subtitleQueueRetryDelaySeconds;
+
     @Value("${playedu.s3.public-endpoint:}")
     private String s3PublicEndpoint;
 }

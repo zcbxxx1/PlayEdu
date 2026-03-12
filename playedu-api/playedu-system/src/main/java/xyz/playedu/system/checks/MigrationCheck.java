@@ -736,6 +736,39 @@ public class MigrationCheck implements CommandLineRunner {
                     add(
                             new HashMap<>() {
                                 {
+                                    put("table", "subtitle_tasks");
+                                    put("name", "20260312_14_30_00_subtitle_tasks");
+                                    put(
+                                            "sql",
+                                            """
+                                                    CREATE TABLE `subtitle_tasks` (
+                                                      `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+                                                      `resource_id` int(11) unsigned NOT NULL DEFAULT 0 COMMENT '视频资源ID',
+                                                      `admin_id` int(11) unsigned NOT NULL DEFAULT 0 COMMENT '提交任务的管理员ID',
+                                                      `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PENDING' COMMENT '状态[PENDING,PROCESSING,SUCCESS,FAILED]',
+                                                      `attempts` int(11) NOT NULL DEFAULT 0 COMMENT '已执行次数',
+                                                      `max_attempts` int(11) NOT NULL DEFAULT 3 COMMENT '最大重试次数',
+                                                      `provider` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '字幕服务提供方',
+                                                      `language` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '字幕语言',
+                                                      `trigger_source` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '触发来源',
+                                                      `error_message` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '错误信息',
+                                                      `duration_seconds` int(11) NOT NULL DEFAULT 0 COMMENT '耗时秒数',
+                                                      `started_at` datetime DEFAULT NULL COMMENT '开始时间',
+                                                      `finished_at` datetime DEFAULT NULL COMMENT '完成时间',
+                                                      `next_run_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '下次可执行时间',
+                                                      `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                                      `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+                                                      PRIMARY KEY (`id`),
+                                                      KEY `resource_id` (`resource_id`),
+                                                      KEY `status_next_run_at` (`status`,`next_run_at`),
+                                                      KEY `created_at` (`created_at`)
+                                                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='视频字幕任务表';
+                                                    """);
+                                }
+                            });
+                    add(
+                            new HashMap<>() {
+                                {
                                     put("table", "ldap_department");
                                     put("name", "20240322_17_29_30_ldap_department");
                                     put(

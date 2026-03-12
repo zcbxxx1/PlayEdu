@@ -71,5 +71,10 @@ playedu:
     audio-format: ${PLAYEDU_SUBTITLE_AUDIO_FORMAT:wav}
     audio-sample-rate: ${PLAYEDU_SUBTITLE_AUDIO_SAMPLE_RATE:16000}
     audio-channels: ${PLAYEDU_SUBTITLE_AUDIO_CHANNELS:1}
+    queue:
+      concurrency: ${PLAYEDU_SUBTITLE_QUEUE_CONCURRENCY:1}
+      poll-interval-ms: ${PLAYEDU_SUBTITLE_QUEUE_POLL_INTERVAL_MS:5000}
+      retry-max-attempts: ${PLAYEDU_SUBTITLE_QUEUE_RETRY_MAX_ATTEMPTS:3}
+      retry-delay-seconds: ${PLAYEDU_SUBTITLE_QUEUE_RETRY_DELAY_SECONDS:60}
   s3:
     public-endpoint: ${PLAYEDU_S3_PUBLIC_ENDPOINT:}

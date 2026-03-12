@@ -25,6 +25,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import xyz.playedu.api.request.backend.ResourceDestroyMultiRequest;
 import xyz.playedu.api.request.backend.ResourceUpdateRequest;
+import xyz.playedu.api.service.SubtitleTaskQueueService;
 import xyz.playedu.api.service.VideoSubtitleService;
 import xyz.playedu.common.annotation.BackendPermission;
 import xyz.playedu.common.annotation.Log;
@@ -67,6 +68,8 @@ public class ResourceController {
     @Autowired private CategoryService categoryService;
 
     @Autowired private VideoSubtitleService videoSubtitleService;
+
+    @Autowired private SubtitleTaskQueueService subtitleTaskQueueService;
 
     @GetMapping("/index")
     @Log(title = "资源-列表", businessType = BusinessTypeConstant.GET)
@@ -287,11 +290,11 @@ public class ResourceController {
             return JsonResponse.error("视频资源详情不存在");
         }
 
-        if (!videoSubtitleService.prepareGenerateSubtitle(id)) {
-            return JsonResponse.error("字幕服务未启用或未配置");
+        if (!videoSubtitleService.canGenerateSubtitle()) {
+            return JsonResponse.error(videoSubtitleService.getSubtitleUnavailableReason());
         }
 
-        videoSubtitleService.generateSubtitle(id, BCtx.getId());
+        subtitleTaskQueueService.enqueueManualTask(id, BCtx.getId());
         return JsonResponse.success("字幕生成任务已提交");
     }
 
