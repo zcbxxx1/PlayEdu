@@ -11,9 +11,10 @@ import {
   Tag,
   Tooltip,
   Spin,
+  Select,
 } from "antd";
 import type { MenuProps } from "antd";
-import { resource } from "../../../api";
+import { resource, subtitleTask } from "../../../api";
 import { useLocation } from "react-router-dom";
 import {
   DownOutlined,
@@ -63,6 +64,29 @@ type AdminUsersModel = {
   [key: number]: string;
 };
 
+type SubtitleTaskModel = {
+  id: number;
+  resource_id: number;
+  admin_id: number;
+  status: string;
+  attempts: number;
+  max_attempts: number;
+  provider: string;
+  language: string;
+  trigger_source: string;
+  error_message?: string;
+  duration_seconds: number;
+  started_at?: string;
+  finished_at?: string;
+  next_run_at?: string;
+  created_at: string;
+  updated_at?: string;
+};
+
+type SubtitleTaskResourceMap = {
+  [key: number]: DataType;
+};
+
 const ResourceVideosPage = () => {
   const result = new URLSearchParams(useLocation().search);
   const [videoList, setVideoList] = useState<DataType[]>([]);
@@ -90,9 +114,23 @@ const ResourceVideosPage = () => {
   const [subtitlePreviewTitle, setSubtitlePreviewTitle] = useState("");
   const [subtitlePreviewContent, setSubtitlePreviewContent] = useState("");
   const [subtitlePreviewLoading, setSubtitlePreviewLoading] = useState(false);
+  const [subtitleTaskVisible, setSubtitleTaskVisible] = useState(false);
+  const [subtitleTaskLoading, setSubtitleTaskLoading] = useState(false);
+  const [subtitleTaskPage, setSubtitleTaskPage] = useState(1);
+  const [subtitleTaskSize, setSubtitleTaskSize] = useState(10);
+  const [subtitleTaskTotal, setSubtitleTaskTotal] = useState(0);
+  const [subtitleTaskStatus, setSubtitleTaskStatus] = useState("");
+  const [subtitleTaskList, setSubtitleTaskList] = useState<SubtitleTaskModel[]>(
+    []
+  );
+  const [subtitleTaskResources, setSubtitleTaskResources] =
+    useState<SubtitleTaskResourceMap>({});
+  const [subtitleTaskAdminUsers, setSubtitleTaskAdminUsers] =
+    useState<AdminUsersModel>({});
 
   const subtitleStatusTextMap: Record<string, string> = {
     NONE: "未生成",
+    PENDING: "排队中",
     PROCESSING: "生成中",
     SUCCESS: "已生成",
     FAILED: "失败",
@@ -100,6 +138,21 @@ const ResourceVideosPage = () => {
 
   const subtitleStatusColorMap: Record<string, string> = {
     NONE: "default",
+    PENDING: "default",
+    PROCESSING: "processing",
+    SUCCESS: "success",
+    FAILED: "error",
+  };
+
+  const subtitleTaskStatusTextMap: Record<string, string> = {
+    PENDING: "排队中",
+    PROCESSING: "处理中",
+    SUCCESS: "已完成",
+    FAILED: "失败",
+  };
+
+  const subtitleTaskStatusColorMap: Record<string, string> = {
+    PENDING: "default",
     PROCESSING: "processing",
     SUCCESS: "success",
     FAILED: "error",
@@ -352,7 +405,7 @@ const ResourceVideosPage = () => {
         [id]: {
           ...(prev[id] || { duration: 0, poster: "", rid: id }),
           subtitle_error: "",
-          subtitle_status: "PROCESSING",
+          subtitle_status: "PENDING",
         },
       }));
       pollSubtitleStatus(id);
@@ -417,6 +470,142 @@ const ResourceVideosPage = () => {
     document.body.removeChild(a);
   };
 
+  const formatSeconds = (durationSeconds?: number) => {
+    const seconds = Number(durationSeconds || 0);
+    if (seconds <= 0) {
+      return "-";
+    }
+    if (seconds < 60) {
+      return `${seconds}s`;
+    }
+    const minutes = Math.floor(seconds / 60);
+    const remainSeconds = seconds % 60;
+    return `${minutes}m ${remainSeconds}s`;
+  };
+
+  const getSubtitleTaskList = (showLoading = true) => {
+    if (showLoading) {
+      setSubtitleTaskLoading(true);
+    }
+    return subtitleTask
+      .taskList(subtitleTaskPage, subtitleTaskSize, subtitleTaskStatus)
+      .then((res: any) => {
+        setSubtitleTaskList(res.data.data || []);
+        setSubtitleTaskTotal(res.data.total || 0);
+        setSubtitleTaskResources(res.data.resources || {});
+        setSubtitleTaskAdminUsers(res.data.admin_users || {});
+        setSubtitleTaskLoading(false);
+        return res.data;
+      })
+      .catch((e: any) => {
+        setSubtitleTaskLoading(false);
+        throw e;
+      });
+  };
+
+  useEffect(() => {
+    if (!subtitleTaskVisible) {
+      return;
+    }
+    getSubtitleTaskList();
+  }, [subtitleTaskVisible, subtitleTaskPage, subtitleTaskSize, subtitleTaskStatus]);
+
+  useEffect(() => {
+    if (!subtitleTaskVisible) {
+      return;
+    }
+
+    const hasActiveTask = subtitleTaskList.some((item) =>
+      ["PENDING", "PROCESSING"].includes(item.status)
+    );
+    if (!hasActiveTask) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      getSubtitleTaskList(false);
+    }, 3000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [subtitleTaskVisible, subtitleTaskList]);
+
+  const subtitleTaskColumns: ColumnsType<SubtitleTaskModel> = [
+    {
+      title: "任务ID",
+      dataIndex: "id",
+      width: 90,
+    },
+    {
+      title: "视频",
+      dataIndex: "resource_id",
+      render: (resourceId: number) =>
+        subtitleTaskResources[resourceId]?.name || `资源#${resourceId}`,
+    },
+    {
+      title: "状态",
+      dataIndex: "status",
+      width: 110,
+      render: (status: string) => (
+        <Tag color={subtitleTaskStatusColorMap[status] || "default"}>
+          {subtitleTaskStatusTextMap[status] || status}
+        </Tag>
+      ),
+    },
+    {
+      title: "提交人",
+      dataIndex: "admin_id",
+      width: 120,
+      render: (adminId: number) => subtitleTaskAdminUsers[adminId] || `#${adminId}`,
+    },
+    {
+      title: "重试",
+      key: "attempts",
+      width: 110,
+      render: (_, record) => `${record.attempts}/${record.max_attempts}`,
+    },
+    {
+      title: "耗时",
+      dataIndex: "duration_seconds",
+      width: 100,
+      render: (durationSeconds: number) => formatSeconds(durationSeconds),
+    },
+    {
+      title: "开始时间",
+      dataIndex: "started_at",
+      width: 180,
+      render: (value?: string) => (value ? dateFormat(value) : "-"),
+    },
+    {
+      title: "完成时间",
+      dataIndex: "finished_at",
+      width: 180,
+      render: (value?: string) => (value ? dateFormat(value) : "-"),
+    },
+    {
+      title: "失败原因",
+      dataIndex: "error_message",
+      width: 280,
+      render: (value?: string) => {
+        if (!value) {
+          return <span className="c-9">-</span>;
+        }
+        return (
+          <Tooltip title={value}>
+            <Typography.Text
+              type="danger"
+              ellipsis={{ tooltip: false }}
+              style={{ maxWidth: 240, display: "inline-block" }}
+            >
+              {value}
+            </Typography.Text>
+          </Tooltip>
+        );
+      },
+    },
+  ];
+
   // 获取视频列表
   const getVideoList = (showLoading = true) => {
     if (showLoading) {
@@ -446,7 +635,10 @@ const ResourceVideosPage = () => {
       getVideoList(false)
         .then((data: any) => {
           const extra = data?.videos_extra?.[id];
-          if (extra?.subtitle_status === "PROCESSING" && attempts > 1) {
+          if (
+            ["PENDING", "PROCESSING"].includes(extra?.subtitle_status) &&
+            attempts > 1
+          ) {
             pollSubtitleStatus(id, attempts - 1);
           }
         })
@@ -533,6 +725,16 @@ const ResourceVideosPage = () => {
                 }}
               >
                 {multiConfig ? "取消操作" : "批量操作"}
+              </Button>
+              <Button
+                type="default"
+                className="ml-16"
+                onClick={() => {
+                  setSubtitleTaskPage(1);
+                  setSubtitleTaskVisible(true);
+                }}
+              >
+                字幕任务
               </Button>
               <Button
                 className="ml-16"
@@ -636,6 +838,50 @@ const ResourceVideosPage = () => {
               {subtitlePreviewContent}
             </Typography.Paragraph>
           )}
+        </Modal>
+        <Modal
+          title="字幕任务"
+          open={subtitleTaskVisible}
+          width={1280}
+          centered
+          footer={null}
+          onCancel={() => setSubtitleTaskVisible(false)}
+        >
+          <div className="d-flex j-b-flex mb-16">
+            <Select
+              style={{ width: 180 }}
+              value={subtitleTaskStatus}
+              onChange={(value) => {
+                setSubtitleTaskPage(1);
+                setSubtitleTaskStatus(value);
+              }}
+              options={[
+                { label: "全部状态", value: "" },
+                { label: "排队中", value: "PENDING" },
+                { label: "处理中", value: "PROCESSING" },
+                { label: "已完成", value: "SUCCESS" },
+                { label: "失败", value: "FAILED" },
+              ]}
+            />
+            <Button onClick={() => getSubtitleTaskList()}>刷新</Button>
+          </div>
+          <Table
+            columns={subtitleTaskColumns}
+            dataSource={subtitleTaskList}
+            loading={subtitleTaskLoading}
+            rowKey={(record) => record.id}
+            pagination={{
+              current: subtitleTaskPage,
+              pageSize: subtitleTaskSize,
+              total: subtitleTaskTotal,
+              onChange: (page: number, pageSize: number) => {
+                setSubtitleTaskPage(page);
+                setSubtitleTaskSize(pageSize);
+              },
+              showSizeChanger: true,
+            }}
+            scroll={{ x: 1200 }}
+          />
         </Modal>
       </div>
     </>

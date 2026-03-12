@@ -36,11 +36,14 @@ cd playedu && docker-compose up -d
 
 当前仓库已支持通过 Docker Compose 同时启动 `MySQL + MinIO + ahmetoner/whisper-asr-webservice`。默认配置下：
 
-- 管理后台上传视频并完成合并后，会异步触发字幕生成
+- 管理后台上传视频并完成合并后，只会先写入字幕任务队列
+- 独立字幕 worker 会按配置并发数从队列消费任务，并支持失败自动重试
+- 应用重启后，未完成的处理中任务会自动恢复到队列继续执行
 - PlayEdu 会先在本地容器内抽取标准化音轨，再交给字幕服务处理
 - 原视频和生成的字幕文件 `webvtt(.vtt)` 都会存回当前 `MinIO`
 - PC/H5 播放器会自动加载已生成的字幕
 - 字幕服务调用已通过适配层隔离，后续替换为其它 provider 时不需要重写资源上传和课时业务流程
+- 管理后台“视频”页支持查看字幕任务列表、状态、失败原因、开始时间、完成时间和重试次数
 
 可通过 `.env` 调整以下参数：
 
@@ -57,6 +60,10 @@ cd playedu && docker-compose up -d
 - `PLAYEDU_SUBTITLE_AUDIO_FORMAT=wav`
 - `PLAYEDU_SUBTITLE_AUDIO_SAMPLE_RATE=16000`
 - `PLAYEDU_SUBTITLE_AUDIO_CHANNELS=1`
+- `PLAYEDU_SUBTITLE_QUEUE_CONCURRENCY=1`
+- `PLAYEDU_SUBTITLE_QUEUE_POLL_INTERVAL_MS=5000`
+- `PLAYEDU_SUBTITLE_QUEUE_RETRY_MAX_ATTEMPTS=3`
+- `PLAYEDU_SUBTITLE_QUEUE_RETRY_DELAY_SECONDS=60`
 - `WHISPER_ASR_ENGINE=faster_whisper`
 - `WHISPER_ASR_MODEL=small`
 
