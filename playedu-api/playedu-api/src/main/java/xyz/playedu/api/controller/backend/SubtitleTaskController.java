@@ -35,7 +35,9 @@ import xyz.playedu.common.types.JsonResponse;
 import xyz.playedu.common.types.paginate.PaginationResult;
 import xyz.playedu.common.util.StringUtil;
 import xyz.playedu.resource.domain.Resource;
+import xyz.playedu.resource.domain.ResourceExtra;
 import xyz.playedu.resource.domain.SubtitleTask;
+import xyz.playedu.resource.service.ResourceExtraService;
 import xyz.playedu.resource.service.ResourceService;
 import xyz.playedu.resource.service.SubtitleTaskService;
 
@@ -46,6 +48,8 @@ public class SubtitleTaskController {
     @Autowired private SubtitleTaskService subtitleTaskService;
 
     @Autowired private ResourceService resourceService;
+
+    @Autowired private ResourceExtraService resourceExtraService;
 
     @Autowired private AdminUserService adminUserService;
 
@@ -63,6 +67,7 @@ public class SubtitleTaskController {
         data.put("data", result.getData());
         data.put("total", result.getTotal());
         data.put("resources", new HashMap<>());
+        data.put("resource_extras", new HashMap<>());
         data.put("admin_users", new HashMap<>());
 
         List<Integer> resourceIds =
@@ -72,6 +77,11 @@ public class SubtitleTaskController {
                     resourceService.chunks(resourceIds).stream()
                             .collect(Collectors.toMap(Resource::getId, item -> item));
             data.put("resources", resources);
+
+            Map<Integer, ResourceExtra> resourceExtras =
+                    resourceExtraService.chunksByRids(resourceIds).stream()
+                            .collect(Collectors.toMap(ResourceExtra::getRid, item -> item));
+            data.put("resource_extras", resourceExtras);
         }
 
         List<Integer> adminIds =

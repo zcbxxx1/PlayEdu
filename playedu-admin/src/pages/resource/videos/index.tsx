@@ -12,6 +12,7 @@ import {
   Tooltip,
   Spin,
   Select,
+  Progress,
 } from "antd";
 import type { MenuProps } from "antd";
 import { resource, subtitleTask } from "../../../api";
@@ -87,6 +88,10 @@ type SubtitleTaskResourceMap = {
   [key: number]: DataType;
 };
 
+type SubtitleTaskResourceExtraMap = {
+  [key: number]: VideoModel;
+};
+
 const ResourceVideosPage = () => {
   const result = new URLSearchParams(useLocation().search);
   const [videoList, setVideoList] = useState<DataType[]>([]);
@@ -125,6 +130,8 @@ const ResourceVideosPage = () => {
   );
   const [subtitleTaskResources, setSubtitleTaskResources] =
     useState<SubtitleTaskResourceMap>({});
+  const [subtitleTaskResourceExtras, setSubtitleTaskResourceExtras] =
+    useState<SubtitleTaskResourceExtraMap>({});
   const [subtitleTaskAdminUsers, setSubtitleTaskAdminUsers] =
     useState<AdminUsersModel>({});
 
@@ -493,6 +500,7 @@ const ResourceVideosPage = () => {
         setSubtitleTaskList(res.data.data || []);
         setSubtitleTaskTotal(res.data.total || 0);
         setSubtitleTaskResources(res.data.resources || {});
+        setSubtitleTaskResourceExtras(res.data.resource_extras || {});
         setSubtitleTaskAdminUsers(res.data.admin_users || {});
         setSubtitleTaskLoading(false);
         return res.data;
@@ -531,6 +539,37 @@ const ResourceVideosPage = () => {
     };
   }, [subtitleTaskVisible, subtitleTaskList]);
 
+  const getSubtitleTaskProgress = (task: SubtitleTaskModel) => {
+    if (task.status === "SUCCESS") {
+      return 100;
+    }
+    if (task.status === "FAILED") {
+      return 100;
+    }
+    if (task.status === "PENDING") {
+      return 5;
+    }
+
+    const duration =
+      Number(subtitleTaskResourceExtras[task.resource_id]?.duration || 0) || 0;
+    const startedAt = task.started_at ? new Date(task.started_at).getTime() : 0;
+    if (!startedAt) {
+      return 12;
+    }
+
+    const elapsedSeconds = Math.max(
+      0,
+      Math.floor((Date.now() - startedAt) / 1000)
+    );
+    const estimatedTotalSeconds = Math.max(
+      90,
+      Math.round(duration * 0.3 + 30)
+    );
+    const progress = Math.round((elapsedSeconds / estimatedTotalSeconds) * 100);
+
+    return Math.max(12, Math.min(95, progress));
+  };
+
   const subtitleTaskColumns: ColumnsType<SubtitleTaskModel> = [
     {
       title: "任务ID",
@@ -552,6 +591,30 @@ const ResourceVideosPage = () => {
           {subtitleTaskStatusTextMap[status] || status}
         </Tag>
       ),
+    },
+    {
+      title: "进度",
+      key: "progress",
+      width: 180,
+      render: (_, record) => {
+        const percent = getSubtitleTaskProgress(record);
+        const status =
+          record.status === "FAILED"
+            ? "exception"
+            : record.status === "SUCCESS"
+            ? "success"
+            : "active";
+        return (
+          <div style={{ minWidth: 140 }}>
+            <Progress
+              percent={percent}
+              size="small"
+              status={status}
+              format={(value) => `${value || 0}%`}
+            />
+          </div>
+        );
+      },
     },
     {
       title: "提交人",
