@@ -20,6 +20,7 @@ type SubtitleStyleModel = {
 
 type NativeSubtitleBinding = {
   destroy: () => void;
+  prepareForPiP: () => void;
   sync: () => void;
   trackEl: HTMLTrackElement;
 };
@@ -124,8 +125,8 @@ const applySubtitleStyle = (
   subtitleEl.style.fontSize = `${style.fontSize}px`;
   subtitleEl.style.bottom = `${style.bottomPercent}%`;
   subtitleEl.style.color = style.color;
-  subtitleEl.style.padding = style.backgroundEnabled ? "6px 12px" : "0 4px";
-  subtitleEl.style.borderRadius = style.backgroundEnabled ? "10px" : "0";
+  subtitleEl.style.padding = style.backgroundEnabled ? "3px 10px" : "0 4px";
+  subtitleEl.style.borderRadius = style.backgroundEnabled ? "8px" : "0";
   subtitleEl.style.background = style.backgroundEnabled
     ? "rgba(0, 0, 0, 0.56)"
     : "transparent";
@@ -148,7 +149,7 @@ const syncSubtitleState = (
     (document as any).pictureInPictureElement === player?.video;
 
   if (trackEl?.track) {
-    trackEl.track.mode = isPiP && style.enabled ? "showing" : "disabled";
+    trackEl.track.mode = !style.enabled ? "disabled" : isPiP ? "showing" : "hidden";
   }
 
   applySubtitleStyle(player, style, isPiP);
@@ -172,7 +173,7 @@ const installNativeSubtitleTrack = (
   }
 
   const track = document.createElement("track");
-  track.kind = "subtitles";
+  track.kind = "captions";
   track.label = "中文字幕";
   track.srclang = "zh";
   track.src = subtitleUrl;
@@ -181,7 +182,26 @@ const installNativeSubtitleTrack = (
   videoEl.appendChild(track);
 
   const sync = () => syncSubtitleState(player, track, styleRef.current);
+  const prepareForPiP = () => {
+    track.default = styleRef.current.enabled;
+    if (track.track) {
+      track.track.mode = styleRef.current.enabled ? "showing" : "disabled";
+    }
+  };
   const onPiPChange = () => sync();
+  const rawRequestPiP = videoEl.requestPictureInPicture?.bind(videoEl);
+
+  if (rawRequestPiP) {
+    videoEl.requestPictureInPicture = async () => {
+      prepareForPiP();
+      try {
+        return await rawRequestPiP();
+      } catch (error) {
+        sync();
+        throw error;
+      }
+    };
+  }
 
   track.addEventListener("load", sync);
   videoEl.addEventListener("enterpictureinpicture", onPiPChange);
@@ -189,12 +209,16 @@ const installNativeSubtitleTrack = (
   sync();
 
   return {
+    prepareForPiP,
     trackEl: track,
     sync,
     destroy: () => {
       track.removeEventListener("load", sync);
       videoEl.removeEventListener("enterpictureinpicture", onPiPChange);
       videoEl.removeEventListener("leavepictureinpicture", onPiPChange);
+      if (rawRequestPiP) {
+        videoEl.requestPictureInPicture = rawRequestPiP;
+      }
       track.remove();
     },
   };
