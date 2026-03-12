@@ -8,6 +8,8 @@ import {
   Typography,
   Input,
   Button,
+  Tag,
+  Tooltip,
 } from "antd";
 import type { MenuProps } from "antd";
 import { resource } from "../../../api";
@@ -45,6 +47,10 @@ type VideoModel = {
   duration: number;
   poster: string;
   rid: number;
+  subtitle_error?: string;
+  subtitle_lang?: string;
+  subtitle_rid?: number;
+  subtitle_status?: string;
 };
 
 type AdminUsersModel = {
@@ -74,6 +80,20 @@ const ResourceVideosPage = () => {
   const [updateId, setUpdateId] = useState(0);
   const [playUrl, setPlayUrl] = useState("");
   const [title, setTitle] = useState("");
+
+  const subtitleStatusTextMap: Record<string, string> = {
+    NONE: "未生成",
+    PROCESSING: "生成中",
+    SUCCESS: "已生成",
+    FAILED: "失败",
+  };
+
+  const subtitleStatusColorMap: Record<string, string> = {
+    NONE: "default",
+    PROCESSING: "processing",
+    SUCCESS: "success",
+    FAILED: "error",
+  };
 
   useEffect(() => {
     setCateId(Number(result.get("cid")));
@@ -105,8 +125,44 @@ const ResourceVideosPage = () => {
       title: "视频时长",
       dataIndex: "id",
       render: (id: number) => (
-        <DurationText duration={videosExtra[id].duration}></DurationText>
+        <DurationText duration={videosExtra[id]?.duration || 0}></DurationText>
       ),
+    },
+    {
+      title: "字幕状态",
+      dataIndex: "id",
+      width: 120,
+      render: (id: number) => {
+        const status = videosExtra[id]?.subtitle_status || "NONE";
+        return (
+          <Tag color={subtitleStatusColorMap[status] || "default"}>
+            {subtitleStatusTextMap[status] || status}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: "失败原因",
+      dataIndex: "id",
+      width: 260,
+      render: (id: number) => {
+        const reason = videosExtra[id]?.subtitle_error;
+        if (!reason) {
+          return <span className="c-9">-</span>;
+        }
+
+        return (
+          <Tooltip title={reason}>
+            <Typography.Text
+              type="danger"
+              ellipsis={{ tooltip: false }}
+              style={{ maxWidth: 220, display: "inline-block" }}
+            >
+              {reason}
+            </Typography.Text>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "创建人",
@@ -145,6 +201,19 @@ const ResourceVideosPage = () => {
           },
           {
             key: "2",
+            label: (
+              <Button
+                type="link"
+                className="b-link c-red"
+                disabled={videosExtra[record.id]?.subtitle_status === "PROCESSING"}
+                onClick={() => regenerateSubtitle(record.id)}
+              >
+                重生成字幕
+              </Button>
+            ),
+          },
+          {
+            key: "3",
             label: (
               <Button
                 type="link"
@@ -237,11 +306,28 @@ const ResourceVideosPage = () => {
     });
   };
 
+  const regenerateSubtitle = (id: number) => {
+    resource.generateSubtitle(id).then((res: any) => {
+      message.success(res.msg || "字幕生成任务已提交");
+      setVideoExtra((prev) => ({
+        ...prev,
+        [id]: {
+          ...(prev[id] || { duration: 0, poster: "", rid: id }),
+          subtitle_error: "",
+          subtitle_status: "PROCESSING",
+        },
+      }));
+      pollSubtitleStatus(id);
+    });
+  };
+
   // 获取视频列表
-  const getVideoList = () => {
-    setLoading(true);
+  const getVideoList = (showLoading = true) => {
+    if (showLoading) {
+      setLoading(true);
+    }
     let categoryIds = category_ids.join(",");
-    resource
+    return resource
       .resourceList(page, size, "", "", title, "VIDEO", categoryIds)
       .then((res: any) => {
         setTotal(res.data.result.total);
@@ -250,10 +336,30 @@ const ResourceVideosPage = () => {
         setAdminUsers(res.data.admin_users);
         setResourceUrl(res.data.resource_url);
         setLoading(false);
+        return res.data;
       })
       .catch((err: any) => {
+        setLoading(false);
         console.log("错误,", err);
+        throw err;
       });
+  };
+
+  const pollSubtitleStatus = (id: number, attempts = 30) => {
+    setTimeout(() => {
+      getVideoList(false)
+        .then((data: any) => {
+          const extra = data?.videos_extra?.[id];
+          if (extra?.subtitle_status === "PROCESSING" && attempts > 1) {
+            pollSubtitleStatus(id, attempts - 1);
+          }
+        })
+        .catch(() => {
+          if (attempts > 1) {
+            pollSubtitleStatus(id, attempts - 1);
+          }
+        });
+    }, 2000);
   };
 
   // 重置列表

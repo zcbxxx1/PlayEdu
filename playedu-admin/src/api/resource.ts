@@ -69,3 +69,7 @@ export function videoDetail(id: number) {
 export function videoUpdate(id: number, params: any) {
   return client.put(`/backend/v1/resource/${id}`, params);
 }
+
+export function generateSubtitle(id: number) {
+  return client.post(`/backend/v1/resource/${id}/generate-subtitle`, {});
+}
