@@ -30,6 +30,7 @@ const subtitleFontSizeRange = { min: 12, max: 28 };
 const subtitleBottomRange = { min: 4, max: 20 };
 const subtitleColorOptions = ["#ffffff", "#ffd966", "#7ee787", "#8ab4f8"];
 const useNativeSubtitleRendering = true;
+const nativeCueStyleElementId = "playedu-pc-native-cue-style";
 
 const defaultSubtitleStyle: SubtitleStyleModel = {
   enabled: true,
@@ -96,6 +97,58 @@ const loadSubtitleStyle = (): SubtitleStyleModel => {
   } catch (error) {
     return defaultSubtitleStyle;
   }
+};
+
+const ensureNativeCueStyle = (videoEl: HTMLVideoElement | null | undefined) => {
+  if (typeof document === "undefined" || !videoEl) {
+    return null;
+  }
+
+  let styleEl = document.getElementById(
+    nativeCueStyleElementId
+  ) as HTMLStyleElement | null;
+  if (!styleEl) {
+    styleEl = document.createElement("style");
+    styleEl.id = nativeCueStyleElementId;
+    document.head.appendChild(styleEl);
+  }
+
+  videoEl.setAttribute("data-playedu-native-subtitle", "1");
+  return styleEl;
+};
+
+const toNativeCueLine = (bottomPercent: number) => {
+  const lineFromTop = 100 - bottomPercent - 6;
+  return clampNumber(lineFromTop, 48, 92);
+};
+
+const updateNativeSubtitleStyle = (
+  videoEl: HTMLVideoElement | null | undefined,
+  trackEl: HTMLTrackElement | null,
+  style: SubtitleStyleModel
+) => {
+  if (!videoEl || !trackEl) {
+    return;
+  }
+
+  const styleEl = ensureNativeCueStyle(videoEl);
+  if (styleEl) {
+    styleEl.textContent = `video[data-playedu-native-subtitle="1"]::cue { font-size: ${style.fontSize}px; }`;
+  }
+
+  const cues = trackEl.track?.cues;
+  if (!cues) {
+    return;
+  }
+
+  const line = toNativeCueLine(style.bottomPercent);
+  Array.from(cues).forEach((cue) => {
+    if (cue instanceof window.VTTCue) {
+      const vttCue = cue as VTTCue;
+      vttCue.snapToLines = false;
+      vttCue.line = line;
+    }
+  });
 };
 
 const applySubtitleStyle = (
@@ -168,11 +221,13 @@ const syncSubtitleState = (
   trackEl: HTMLTrackElement | null,
   style: SubtitleStyleModel
 ) => {
+  const videoEl = player?.video as HTMLVideoElement | undefined;
   if (trackEl?.track) {
     trackEl.default = style.enabled;
     trackEl.track.mode = style.enabled ? "showing" : "disabled";
   }
 
+  updateNativeSubtitleStyle(videoEl, trackEl, style);
   applySubtitleStyle(player, style, useNativeSubtitleRendering);
 };
 
@@ -636,7 +691,45 @@ const CoursePalyPage = () => {
                 </button>
               </div>
               <div className={styles["subtitle-row"]}>
-                <span>当前为原生字幕预览模式</span>
+                <div className={styles["subtitle-row-head"]}>
+                  <span>字号</span>
+                  <span>{subtitleStyle.fontSize}px</span>
+                </div>
+                <input
+                  className={styles["subtitle-range"]}
+                  type="range"
+                  min={subtitleFontSizeRange.min}
+                  max={subtitleFontSizeRange.max}
+                  step={1}
+                  value={subtitleStyle.fontSize}
+                  onChange={(event) =>
+                    updateSubtitleStyle({
+                      fontSize: Number(event.target.value),
+                    })
+                  }
+                />
+              </div>
+              <div className={styles["subtitle-row"]}>
+                <div className={styles["subtitle-row-head"]}>
+                  <span>位置</span>
+                  <span>{subtitleStyle.bottomPercent}%</span>
+                </div>
+                <input
+                  className={styles["subtitle-range"]}
+                  type="range"
+                  min={subtitleBottomRange.min}
+                  max={subtitleBottomRange.max}
+                  step={1}
+                  value={subtitleStyle.bottomPercent}
+                  onChange={(event) =>
+                    updateSubtitleStyle({
+                      bottomPercent: Number(event.target.value),
+                    })
+                  }
+                />
+              </div>
+              <div className={styles["subtitle-row"]}>
+                <span>当前为原生字幕模式</span>
               </div>
             </div>
           )}
