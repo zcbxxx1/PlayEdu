@@ -736,7 +736,7 @@ const ResourceVideosPage = () => {
     {
       title: "失败原因",
       dataIndex: "error_message",
-      width: 280,
+      width: 220,
       render: (value?: string) => {
         if (!value) {
           return <span className="c-9">-</span>;
@@ -746,7 +746,7 @@ const ResourceVideosPage = () => {
             <Typography.Text
               type="danger"
               ellipsis={{ tooltip: false }}
-              style={{ maxWidth: 240, display: "inline-block" }}
+              style={{ maxWidth: 180, display: "inline-block" }}
             >
               {value}
             </Typography.Text>
