@@ -627,7 +627,7 @@ const ResourceVideosPage = () => {
     {
       title: "任务ID",
       dataIndex: "id",
-      width: 90,
+      width: 72,
     },
     {
       title: "视频",
@@ -694,19 +694,31 @@ const ResourceVideosPage = () => {
     {
       title: "提交人",
       dataIndex: "admin_id",
-      width: 120,
-      render: (adminId: number) => subtitleTaskAdminUsers[adminId] || `#${adminId}`,
+      width: 210,
+      render: (adminId: number) => {
+        const adminName = subtitleTaskAdminUsers[adminId] || `#${adminId}`;
+        return (
+          <Tooltip title={adminName}>
+            <Typography.Text
+              ellipsis={{ tooltip: false }}
+              style={{ maxWidth: 180, display: "inline-block" }}
+            >
+              {adminName}
+            </Typography.Text>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "重试",
       key: "attempts",
-      width: 110,
+      width: 84,
       render: (_, record) => `${record.attempts}/${record.max_attempts}`,
     },
     {
       title: "耗时",
       dataIndex: "duration_seconds",
-      width: 100,
+      width: 84,
       render: (durationSeconds: number) => formatSeconds(durationSeconds),
     },
     {
@@ -1034,7 +1046,7 @@ const ResourceVideosPage = () => {
         <Modal
           title="字幕任务"
           open={subtitleTaskVisible}
-          width={1280}
+          width={1640}
           centered
           footer={null}
           onCancel={() => setSubtitleTaskVisible(false)}
@@ -1073,7 +1085,7 @@ const ResourceVideosPage = () => {
               },
               showSizeChanger: true,
             }}
-            scroll={{ x: 1200 }}
+            scroll={{ x: 1600 }}
           />
         </Modal>
       </div>
