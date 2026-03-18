@@ -7,6 +7,25 @@
 
 START TRANSACTION;
 
+-- 0) Backfill legacy schema columns that current 2.x code expects but 1.8 tables may still miss.
+-- Run this script once on a fresh 1.8 -> 2.x migration database.
+ALTER TABLE `courses`
+  ADD COLUMN `sort_at` timestamp NULL DEFAULT NULL COMMENT '排序时间' AFTER `created_at`,
+  ADD COLUMN `extra` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '其它规则[课程设置]' AFTER `sort_at`,
+  ADD COLUMN `admin_id` int(11) NOT NULL DEFAULT 0 COMMENT '管理员ID' AFTER `extra`,
+  ADD COLUMN `updated_at` timestamp NULL DEFAULT NULL COMMENT '更新时间' AFTER `admin_id`,
+  ADD COLUMN `deleted_at` timestamp NULL DEFAULT NULL COMMENT '删除时间' AFTER `updated_at`;
+
+ALTER TABLE `course_hour`
+  ADD COLUMN `deleted` tinyint(4) NOT NULL DEFAULT 0 COMMENT '删除标志[0:存在,1:删除]' AFTER `created_at`;
+
+ALTER TABLE `users`
+  ADD COLUMN `updated_at` timestamp NULL DEFAULT NULL COMMENT '更新时间' AFTER `created_at`;
+
+ALTER TABLE `user_learn_duration_records`
+  ADD COLUMN `from_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '来源ID' AFTER `end_at`,
+  ADD COLUMN `from_scene` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '记录来源[线上课:COURSE,学习任务:STUDY]' AFTER `from_id`;
+
 -- 1) Copy legacy resource rows into the new resource table while preserving IDs.
 INSERT INTO `resource` (
   `id`,

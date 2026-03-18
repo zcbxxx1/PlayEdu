@@ -797,6 +797,61 @@ public class MigrationCheck implements CommandLineRunner {
                     add(
                             new HashMap<>() {
                                 {
+                                    put("table", "");
+                                    put("name", "20260318_14_10_00_courses_legacy_schema_backfill");
+                                    put(
+                                            "sql",
+                                            """
+                                                    ALTER TABLE `courses`
+                                                      ADD COLUMN IF NOT EXISTS `sort_at` timestamp NULL DEFAULT NULL COMMENT '排序时间' AFTER `created_at`,
+                                                      ADD COLUMN IF NOT EXISTS `extra` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '其它规则[课程设置]' AFTER `sort_at`,
+                                                      ADD COLUMN IF NOT EXISTS `admin_id` int(11) NOT NULL DEFAULT 0 COMMENT '管理员ID' AFTER `extra`,
+                                                      ADD COLUMN IF NOT EXISTS `updated_at` timestamp NULL DEFAULT NULL COMMENT '更新时间' AFTER `admin_id`,
+                                                      ADD COLUMN IF NOT EXISTS `deleted_at` timestamp NULL DEFAULT NULL COMMENT '删除时间' AFTER `updated_at`;
+                                                    """);
+                                }
+                            });
+                    add(
+                            new HashMap<>() {
+                                {
+                                    put("table", "");
+                                    put("name", "20260318_14_11_00_course_hour_deleted_backfill");
+                                    put(
+                                            "sql",
+                                            """
+                                                    ALTER TABLE `course_hour`
+                                                      ADD COLUMN IF NOT EXISTS `deleted` tinyint(4) NOT NULL DEFAULT 0 COMMENT '删除标志[0:存在,1:删除]' AFTER `created_at`;
+                                                    """);
+                                }
+                            });
+                    add(
+                            new HashMap<>() {
+                                {
+                                    put("table", "");
+                                    put("name", "20260318_14_12_00_users_updated_at_backfill");
+                                    put(
+                                            "sql",
+                                            """
+                                                    ALTER TABLE `users`
+                                                      ADD COLUMN IF NOT EXISTS `updated_at` timestamp NULL DEFAULT NULL COMMENT '更新时间' AFTER `created_at`;
+                                                    """);
+                                }
+                            });
+                    add(
+                            new HashMap<>() {
+                                {
+                                    put("table", "");
+                                    put("name", "20260318_14_20_00_user_learn_duration_records_backfill");
+                                    put(
+                                            "sql",
+                                            """
+                                                    SELECT 1;
+                                                    """);
+                                }
+                            });
+                    add(
+                            new HashMap<>() {
+                                {
                                     put("table", "ldap_department");
                                     put("name", "20240322_17_29_30_ldap_department");
                                     put(
@@ -937,6 +992,11 @@ public class MigrationCheck implements CommandLineRunner {
                     continue;
                 }
 
+                if (handleCustomMigration(migrationName, tables)) {
+                    migrationService.store(migrationName);
+                    continue;
+                }
+
                 String tableName = tableItem.get("table");
                 if (!tables.isEmpty() && tables.contains(tableName)) {
                     // 数据表已创建但是没有创建记录
@@ -953,6 +1013,76 @@ public class MigrationCheck implements CommandLineRunner {
 
         } catch (Exception e) {
             log.error("数据库迁移执行失败,错误信息:" + e.getMessage());
+        }
+    }
+
+    private boolean handleCustomMigration(String migrationName, List<String> tables) {
+        return switch (migrationName) {
+            case "20260318_14_10_00_courses_legacy_schema_backfill" -> {
+                if (tables.contains("courses")) {
+                    executeIfMissing("courses", "sort_at",
+                            "ALTER TABLE `courses` ADD COLUMN `sort_at` timestamp NULL DEFAULT NULL COMMENT '排序时间' AFTER `created_at`");
+                    executeIfMissing("courses", "extra",
+                            "ALTER TABLE `courses` ADD COLUMN `extra` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '其它规则[课程设置]' AFTER `sort_at`");
+                    executeIfMissing("courses", "admin_id",
+                            "ALTER TABLE `courses` ADD COLUMN `admin_id` int(11) NOT NULL DEFAULT 0 COMMENT '管理员ID' AFTER `extra`");
+                    executeIfMissing("courses", "updated_at",
+                            "ALTER TABLE `courses` ADD COLUMN `updated_at` timestamp NULL DEFAULT NULL COMMENT '更新时间' AFTER `admin_id`");
+                    executeIfMissing("courses", "deleted_at",
+                            "ALTER TABLE `courses` ADD COLUMN `deleted_at` timestamp NULL DEFAULT NULL COMMENT '删除时间' AFTER `updated_at`");
+                }
+                yield true;
+            }
+            case "20260318_14_11_00_course_hour_deleted_backfill" -> {
+                if (tables.contains("course_hour")) {
+                    executeIfMissing(
+                            "course_hour",
+                            "deleted",
+                            "ALTER TABLE `course_hour` ADD COLUMN `deleted` tinyint(4) NOT NULL DEFAULT 0 COMMENT '删除标志[0:存在,1:删除]' AFTER `created_at`");
+                }
+                yield true;
+            }
+            case "20260318_14_12_00_users_updated_at_backfill" -> {
+                if (tables.contains("users")) {
+                    executeIfMissing(
+                            "users",
+                            "updated_at",
+                            "ALTER TABLE `users` ADD COLUMN `updated_at` timestamp NULL DEFAULT NULL COMMENT '更新时间' AFTER `created_at`");
+                }
+                yield true;
+            }
+            case "20260318_14_20_00_user_learn_duration_records_backfill" -> {
+                if (tables.contains("user_learn_duration_records")) {
+                    executeIfMissing(
+                            "user_learn_duration_records",
+                            "from_id",
+                            "ALTER TABLE `user_learn_duration_records` ADD COLUMN `from_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '来源ID' AFTER `end_at`");
+                    executeIfMissing(
+                            "user_learn_duration_records",
+                            "from_scene",
+                            "ALTER TABLE `user_learn_duration_records` ADD COLUMN `from_scene` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '记录来源[线上课:COURSE,学习任务:STUDY]' AFTER `from_id`");
+                }
+                yield true;
+            }
+            default -> false;
+        };
+    }
+
+    private void executeIfMissing(String tableName, String columnName, String sql) {
+        Integer count =
+                jdbcTemplate.queryForObject(
+                        """
+                        SELECT COUNT(1)
+                        FROM information_schema.COLUMNS
+                        WHERE TABLE_SCHEMA = DATABASE()
+                          AND TABLE_NAME = ?
+                          AND COLUMN_NAME = ?
+                        """,
+                        Integer.class,
+                        tableName,
+                        columnName);
+        if (count != null && count == 0) {
+            jdbcTemplate.execute(sql);
         }
     }
 }

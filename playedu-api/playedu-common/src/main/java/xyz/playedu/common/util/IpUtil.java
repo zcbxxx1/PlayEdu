@@ -27,6 +27,10 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class IpUtil {
 
+    private static final String UNKNOWN = "未知";
+
+    private static final int IP_LOOKUP_TIMEOUT_MS = 1500;
+
     /**
      * 获取客户端IP
      *
@@ -68,7 +72,6 @@ public class IpUtil {
      */
     public static String getRealAddressByIP(String ip) {
         String IP_URL = "https://whois.pconline.com.cn/ipJson.jsp";
-        String UNKNOWN = "未知";
 
         if (IpUtil.internalIp(ip)) {
             return "内网";
@@ -83,17 +86,33 @@ public class IpUtil {
                                     put("ip", ip);
                                     put("json", true);
                                 }
-                            });
+                            },
+                            IP_LOOKUP_TIMEOUT_MS);
             if (StringUtil.isEmpty(rspStr)) {
-                log.error("获取地理位置异常1 {}", ip);
+                log.warn("IP归属地查询返回空结果 {}", ip);
+                return UNKNOWN;
+            }
+            String normalized = rspStr.trim();
+            if (!normalized.startsWith("{")) {
+                log.warn("IP归属地查询返回非JSON内容 {} body={}", ip, abbreviate(normalized));
                 return UNKNOWN;
             }
             JSONObject json = JSONUtil.parseObj(rspStr);
             return String.format("%s-%s", json.getStr("pro"), json.getStr("city"));
         } catch (Exception e) {
-            log.error("获取地理位置异常2 {} msg {}", ip, e.getMessage());
+            log.warn("IP归属地查询失败 {} msg {}", ip, e.getMessage());
         }
         return UNKNOWN;
+    }
+
+    private static String abbreviate(String value) {
+        if (value == null) {
+            return "";
+        }
+        if (value.length() <= 120) {
+            return value;
+        }
+        return value.substring(0, 120) + "...";
     }
 
     /**
